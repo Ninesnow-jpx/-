@@ -1,0 +1,1786 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>医生工作台 - 多模态慢性病智能筛查平台</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <style>
+    .layout-grid {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      min-height: calc(100vh - 70px);
+    }
+
+    .sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem 1rem;
+    }
+
+    .nav-items {
+      display: grid;
+      gap: 0.5rem;
+    }
+
+    .nav-item {
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      color: var(--text-scondary);
+      transition: all 0.2s;
+      font-weight: 500;
+    }
+
+    .nav-item:hover,
+    .nav-item.active {
+      background: var(--primary-light);
+      color: var(--primary);
+    }
+
+    .main-view {
+      padding: 2rem;
+      background: var(--background);
+      overflow-y: auto;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      padding: 1.5rem;
+      border-radius: 1rem;
+      border: 1px solid var(--border);
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      margin: 0.5rem 0;
+      color: var(--text-main);
+    }
+
+    .stat-label {
+      color: var(--text-scondary);
+      font-size: 0.875rem;
+    }
+
+    /* Patient Table */
+    .table-container {
+      background: var(--surface);
+      border-radius: 1rem;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .data-table th,
+    .data-table td {
+      text-align: left;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .data-table th {
+      background: #f8fafc;
+      font-weight: 600;
+      color: var(--text-scondary);
+      font-size: 0.875rem;
+    }
+
+    .data-table tr:hover {
+      background: var(--primary-light);
+    }
+
+    /* Case Review Layout */
+    .review-layout {
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      gap: 1.5rem;
+      height: calc(100vh - 140px);
+    }
+
+    .case-details {
+      display: grid;
+      gap: 1.5rem;
+      overflow-y: auto;
+    }
+
+    .ai-report-panel {
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      padding: 1.5rem;
+      overflow-y: auto;
+      border-radius: 1rem;
+    }
+
+    .medical-image {
+      width: 100%;
+      height: 300px;
+      background: #000;
+      border-radius: 0.5rem;
+      display: grid;
+      place-items: center;
+      color: white;
+      position: relative;
+      object-fit: contain;
+    }
+
+    .risk-high {
+      color: var(--error);
+    }
+
+    .risk-mid {
+      color: var(--warning);
+    }
+
+    .risk-low {
+      color: var(--success);
+    }
+  </style>
+</head>
+
+<body>
+  <nav class="navbar">
+    <div class="container navbar-content" style="max-width: 100%; padding: 0 2rem;">
+      <div class="brand">
+        <div
+          style="width:32px;height:32px;background:var(--primary);border-radius:8px;display:grid;place-items:center;color:white;">
+          ✚</div>
+        医生工作台
+      </div>
+      <div class="nav-links">
+        <div style="display:flex;align-items:center;gap:1rem;">
+          <span id="doctor-name" style="font-weight:600;">医生</span>
+          <button onclick="Doctor.openSettings()" class="btn btn-outline"
+            style="padding:0.4rem 0.8rem;font-size:0.85rem;">⚙️ 设置</button>
+          <button onclick="Doctor.logout()" class="btn btn-outline" style="padding:0.4rem 1rem;">退出</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="layout-grid">
+    <aside class="sidebar">
+      <div class="nav-items">
+        <div class="nav-item active" onclick="Doctor.switchView('dashboard')">📊 工作台概览</div>
+        <div class="nav-item" onclick="Doctor.switchView('patients')">👥 患者管理</div>
+        <div class="nav-item" onclick="Doctor.switchView('consultations')">👨‍⚕️ 会诊中心</div>
+        <div class="nav-item" onclick="Doctor.switchView('teaching')">📚 教学案例库</div>
+        <div class="nav-item" onclick="Doctor.switchView('ai-stats')">🤖 AI性能分析</div>
+        <div class="nav-item" onclick="Doctor.switchView('settings')">⚙️ 个人设置</div>
+      </div>
+    </aside>
+
+    <main class="main-view" id="main-content">
+      <!-- Content Injected -->
+      <div class="text-center" style="margin-top:20%;">加载中...</div>
+    </main>
+  </div>
+
+  <!-- Review Modal (Full Screen Overlay) -->
+  <div id="review-modal" class="modal-overlay">
+    <div class="modal" style="max-width: 95vw; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="card-header" style="flex-shrink: 0;">
+        <div class="flex-between" style="width: 100%;">
+          <h3>详情查看</h3>
+          <button class="btn btn-outline"
+            onclick="document.getElementById('review-modal').classList.remove('active')">关闭</button>
+        </div>
+      </div>
+      <div class="card-body" id="review-content"
+        style="flex: 1; overflow-y: auto; padding: 1.5rem; background: #f1f5f9;">
+        <!-- Review Content -->
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+  <script>
+    const Doctor = {
+      state: {
+        doctorId: localStorage.getItem('doctor_id'),
+        currentView: 'dashboard',
+        riskChart: null,
+        systemHealthy: false
+      },
+
+      async init() {
+        if (!this.state.doctorId) {
+          window.location.href = '/login';
+          return;
+        }
+        document.getElementById('doctor-name').textContent = localStorage.getItem('doctor_name') || '医生';
+
+        const originalRequest = App.API.request.bind(App.API);
+        App.API.request = (path, options = {}) => {
+          options.headers = options.headers || {};
+          options.headers['X-Doctor-ID'] = this.state.doctorId;
+          return originalRequest(path, options);
+        };
+
+        // 初始化系统健康检查
+        this.checkSystemHealth();
+        // 每30秒自动刷新健康状态
+        setInterval(() => this.checkSystemHealth(), 30000);
+
+        this.switchView('dashboard');
+      },
+
+      logout() {
+        localStorage.removeItem('doctor_id');
+        window.location.href = '/login';
+      },
+
+      async switchView(view, params = {}) {
+        document.querySelectorAll('.nav-item').forEach(el => {
+          el.classList.remove('active');
+          if (el.textContent.includes(this.getViewName(view))) el.classList.add('active');
+        });
+
+        this.state.currentView = view;
+        const container = document.getElementById('main-content');
+        container.innerHTML = '<div class="text-center" style="margin-top:5rem;"><div style="font-size:2rem;margin-bottom:1rem;">⏳</div>加载中...</div>';
+
+        try {
+          if (view === 'dashboard') {
+            await this.renderDashboard(container);
+          } else if (view === 'patients') {
+            await this.renderPatientList(container);
+          } else if (view === 'consultations') {
+            await this.renderConsultations(container);
+          } else if (view === 'teaching') {
+            await this.renderTeachingCases(container);
+          } else if (view === 'ai-stats') {
+            await this.renderAIStats(container);
+          } else if (view === 'settings') {
+            await this.renderSettings(container);
+          }
+        } catch (err) {
+          container.innerHTML = `<div class="card p-4 text-center error">加载失败: ${err.message}</div>`;
+        }
+      },
+
+      getViewName(view) {
+        const map = {
+          'dashboard': '工作台',
+          'patients': '患者管理',
+          'consultations': '会诊中心',
+          'teaching': '教学案例',
+          'ai-stats': 'AI性能',
+          'settings': '个人设置'
+        };
+        return map[view] || '';
+      },
+
+      async renderConsultations(container) {
+        const res = await App.API.get('/api/doctor/consultation/list?type=all');
+        this.state.consultations = res.consultations; // Store for valid lookup
+
+        container.innerHTML = `
+              <div class="flex-between mb-4">
+                  <h2>会诊中心</h2>
+                  <button class="btn btn-primary" onclick="Doctor.openQuickConsultation()">+ 查找病例发起会诊</button>
+              </div>
+              <div class="card">
+                  <div class="card-body">
+                    ${res.consultations.length === 0 ? '<div class="text-center p-4 text-secondary">暂无会诊记录</div>' : `
+                      <table class="data-table">
+                          <thead>
+                              <tr>
+                                  <th>会诊ID</th>
+                                  <th>关联患者</th>
+                                  <th>发起医生</th>
+                                  <th>受邀医生</th>
+                                  <th>类型</th>
+                                  <th>状态</th>
+                                  <th>操作</th>
+                              </tr>
+                          </thead>
+                          <tbody>
+                              ${res.consultations.map(c => `
+                                  <tr>
+                                      <td class="text-mono small">${c.consultation_id}</td>
+                                      <td>${c.patient_name} <span class="text-secondary small">(${c.patient_id})</span></td>
+                                      <td>${c.requesting_doctor_name}</td>
+                                      <td>${c.consulting_doctor_name || '-'}</td>
+                                      <td>${c.consultation_type === 'routine' ? '常规会诊' : '紧急会诊'}</td>
+                                      <td>
+                                          <span class="badge badge-${c.consultation_status === 'completed' ? 'success' : 'warning'}">
+                                              ${c.consultation_status === 'pending' ? '待处理' : '已完成'}
+                                          </span>
+                                      </td>
+                                      <td>
+                                          <button class="btn btn-outline small" onclick="Doctor.openConsultationDetail('${c.consultation_id}')">查看详情</button>
+                                      </td>
+                                  </tr>
+                              `).join('')}
+                          </tbody>
+                      </table>
+                    `}
+                  </div>
+              </div>
+          `;
+      },
+
+      openConsultationDetail(id) {
+        const c = this.state.consultations.find(i => i.consultation_id === id);
+        if (!c) return;
+
+        const modal = document.getElementById('review-modal');
+        const content = document.getElementById('review-content');
+        modal.classList.add('active');
+
+        const isMyTask = c.consulting_doctor_id === this.state.doctorId || (!c.consulting_doctor_id && c.requesting_doctor_id !== this.state.doctorId);
+        console.log('Consultation Detail Debug:', {
+          cid: c.consultation_id,
+          consultingDoc: c.consulting_doctor_id,
+          myDocId: this.state.doctorId,
+          isMyTask: isMyTask,
+          status: c.consultation_status
+        });
+        const isPending = c.consultation_status === 'pending';
+
+        content.innerHTML = `
+            <div class="card" style="max-width:800px; margin:0 auto;">
+                <div class="card-header flex-between">
+                    <h4>会诊详情 #${c.consultation_id}</h4>
+                    <span class="badge badge-${c.consultation_status === 'completed' ? 'success' : 'warning'}">
+                        ${c.consultation_status === 'pending' ? '待处理' : '已完成'}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="grid-cols-2 mb-4">
+                        <div><strong>申请人:</strong> ${c.requesting_doctor_name}</div>
+                        <div><strong>申请时间:</strong> ${c.requested_at.replace('T', ' ')}</div>
+                        <div><strong>患者:</strong> ${c.patient_name} (${c.patient_id})</div>
+                        <div><strong>类型:</strong> ${c.consultation_type === 'routine' ? '常规' : '紧急'}</div>
+                    </div>
+
+                    <div style="background:#f8fafc; padding:1rem; border-radius:0.5rem; margin-bottom:1.5rem;">
+                        <h5 class="mb-2">临床问题</h5>
+                        <div class="mb-3">${c.clinical_question || '无'}</div>
+                        <h5 class="mb-2">申请理由</h5>
+                        <div>${c.request_reason || '无'}</div>
+                    </div>
+
+                    ${c.consultation_status === 'completed' ? `
+                        <div style="border-top:1px solid #eee; padding-top:1.5rem;">
+                            <h4 class="mb-3">会诊意见</h4>
+                            <div class="mb-3"><strong>综合意见:</strong><br>${c.consultation_opinion}</div>
+                            <div><strong>建议处置:</strong><br>${c.recommended_actions}</div>
+                            <div class="text-right mt-2 text-secondary small">
+                                完成时间: ${c.completed_at ? c.completed_at.replace('T', ' ') : '-'}
+                            </div>
+                        </div>
+                    ` : (isMyTask && isPending) ? `
+                        <div style="border-top:1px solid #eee; padding-top:1.5rem;">
+                            <h4 class="mb-3">填写会诊意见</h4>
+                            <form onsubmit="Doctor.submitConsultationResponse(event, '${c.consultation_id}')">
+                                <div class="form-group">
+                                    <label class="form-label">会诊意见</label>
+                                    <textarea name="consultation_opinion" class="form-textarea" required placeholder="请输入您的会诊意见..."></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">建议处置</label>
+                                    <textarea name="recommended_actions" class="form-textarea" required placeholder="请输入下一步的检查或治疗建议..."></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-primary" style="width:100%; margin-top:1rem;">提交回复</button>
+                            </form>
+                        </div>
+                    ` : (!c.consulting_doctor_id && isPending) ? `
+                        <div class="text-center p-4 text-warning">
+                             ⚠️ 公开会诊暂不支持直接认领，请重新发起指定医生会诊
+                        </div>
+                    ` : '<div class="text-center p-4 text-secondary">无查看权限或无需处理</div>'}
+                </div>
+            </div>
+        `;
+      },
+
+      async submitConsultationResponse(e, id) {
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(e.target));
+
+        try {
+          await App.API.post(`/api/doctor/consultation/${id}/respond`, data);
+          App.Toast.show('会诊回复已提交', 'success');
+          document.getElementById('review-modal').classList.remove('active');
+          this.renderConsultations(document.getElementById('main-content'));
+        } catch (err) {
+          App.Toast.show(err.message, 'error');
+        }
+      },
+
+      async renderTeachingCases(container) {
+        const res = await App.API.get('/api/doctor/teaching_cases');
+
+        container.innerHTML = `
+             <div class="mb-4">
+                  <h2>教学案例库</h2>
+                  <p class="text-secondary">精选的典型病例与AI辅助诊断纠偏记录，用于临床教学与研究。</p>
+             </div>
+             <div class="grid-cols-2" style="grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));">
+                ${res.teaching_cases.map(c => `
+                    <div class="card feature-card">
+                        <div class="card-header flex-between">
+                            <span class="badge badge-info is-light">案例 #${c.id}</span>
+                            <span class="small text-secondary">${c.created_at.split('T')[0]}</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <div class="text-secondary small">诊断详情</div>
+                                ${c.corrected_diagnosis ?
+            `<div>
+                                     <span class="text-error" style="text-decoration: line-through; margin-right: 0.5rem; opacity: 0.8;">${c.original_diagnosis}</span>
+                                     <span class="text-secondary">➔</span>
+                                     <strong class="text-success" style="margin-left: 0.5rem;">${c.corrected_diagnosis}</strong>
+                                   </div>`
+            :
+            `<div>
+                                     <strong class="text-success">${c.original_diagnosis}</strong>
+                                     <span class="badge badge-success is-light small ml-2">诊断确认</span>
+                                   </div>`
+          }
+                            </div>
+                            <div class="mb-3">
+                                <div class="text-secondary small">教学笔记</div>
+                                <div style="background:#f8fafc; padding:0.75rem; border-radius:0.5rem; font-size:0.9rem; margin-top:0.25rem;">
+                                    ${c.teaching_notes || '暂无笔记'}
+                                </div>
+                            </div>
+                            <div class="flex-between" style="align-items:center; margin-top:1rem;">
+                                <div class="small">
+                                    贡献者: <strong>${c.doctor_name}</strong>
+                                </div>
+                                <button class="btn btn-outline small" onclick="Doctor.openExamReview('${c.exam_id}', true)">回顾完整病例</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+                ${res.teaching_cases.length === 0 ? '<div class="text-center p-4 text-secondary col-span-full">暂无教学案例</div>' : ''}
+             </div>
+          `;
+      },
+
+      async renderAIStats(container) {
+        const res = await App.API.get('/api/doctor/statistics/ai_performance');
+        const p = res.overall_performance;
+        const m = res.modality_feedback_count;
+
+        container.innerHTML = `
+              <h2 class="mb-4">AI 模型性能监控</h2>
+
+              <div class="stats-grid mb-4">
+                  <div class="stat-card">
+                      <div class="stat-label">总反馈样本</div>
+                      <div class="stat-value">${p.total_feedbacks}</div>
+                  </div>
+                  <div class="stat-card">
+                      <div class="stat-label">临床准确率</div>
+                      <div class="stat-value text-success">${p.accuracy_rate.toFixed(1)}%</div>
+                  </div>
+                  <div class="stat-card">
+                      <div class="stat-label">假阳性率 (误报)</div>
+                      <div class="stat-value text-warning">${p.false_positive_rate.toFixed(1)}%</div>
+                  </div>
+                  <div class="stat-card">
+                      <div class="stat-label">假阴性率 (漏报)</div>
+                      <div class="stat-value text-error">${p.false_negative_rate.toFixed(1)}%</div>
+                  </div>
+              </div>
+
+              <div class="grid-cols-2 gap-4">
+                  <div class="card">
+                      <div class="card-header">
+                          <h4>模态反馈分布</h4>
+                      </div>
+                      <div class="card-body">
+                          <div style="display:flex; align-items:flex-end; height:200px; gap:2rem; padding:1rem 2rem;">
+                               ${Object.entries(m).map(([key, val]) => {
+          const max = Math.max(...Object.values(m)) || 1;
+          const height = (val / max) * 100;
+          const labels = { fundus: '眼底图像', ecg: 'ECG信号', text: '病历文本' };
+          return `
+                                     <div style="flex:1; text-align:center; height:100%; display:flex; flex-direction:column; justify-content:flex-end;">
+                                         <div style="height:${Math.max(height, 5)}%; background:var(--primary); border-radius:4px 4px 0 0; width:60%; margin:0 auto; transition:height 0.5s;"></div>
+                                         <div class="mt-2 font-weight-bold">${val}</div>
+                                         <div class="small text-secondary">${labels[key]}</div>
+                                     </div>
+                                   `;
+        }).join('')}
+                          </div>
+                      </div>
+                  </div>
+
+                  <div class="card">
+                      <div class="card-header">
+                          <h4>性能优化建议</h4>
+                      </div>
+                      <div class="card-body">
+                          <ul class="list-disc pl-4 space-y-2">
+                             ${p.false_positive_rate > 15 ? '<li class="text-warning">ECG模型的误报率偏高，建议增加窦性心律的负样本训练。</li>' : ''}
+                             ${p.false_negative_rate > 10 ? '<li class="text-error">眼底病变的漏报率需引起注意，建议加强微小病灶的标注质量。</li>' : ''}
+                             ${p.total_feedbacks < 10 ? '<li>反馈数据量尚不足以产生统计显著性，请继续积累临床反馈。</li>' : '<li>模型整体表现稳定，可考虑在下一版本中引入更复杂的融合策略。</li>'}
+                          </ul>
+                      </div>
+                  </div>
+              </div>
+          `;
+      },
+
+      async renderDashboard(container) {
+        try {
+          const profile = await App.API.get('/api/doctor/profile');
+          const platformStats = await App.API.get('/api/statistics');
+
+          const s = profile.statistics || { total_patients: 0, total_reviews: 0, total_feedbacks: 0, ai_accuracy_rate: 0 };
+          const p = platformStats;
+
+          container.innerHTML = `
+                        <h2 class="mb-4">工作概览</h2>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-label">我的患者</div>
+                                <div class="stat-value" style="color:var(--primary)">${s.total_patients}</div>
+                                <div class="small text-secondary">平台总数: ${p.total_patients}</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">已处理报告</div>
+                                <div class="stat-value" style="color:var(--secondary)">${s.total_reviews}</div>
+                                <div class="small text-secondary">今日新增检查: ${p.recent_trend && p.recent_trend.length > 0 ? p.recent_trend[p.recent_trend.length - 1].count : 0}</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">AI反馈</div>
+                                <div class="stat-value" style="color:var(--accent)">${s.total_feedbacks}</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">AI准确率</div>
+                                <div class="stat-value">${(s.ai_accuracy_rate || 0).toFixed(1)}%</div>
+                            </div>
+                        </div>
+
+                        <div class="grid-cols-2 gap-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3>最近管理的患者</h3>
+                                    <button class="btn btn-outline" style="font-size:0.875rem" onclick="Doctor.switchView('patients')">查看全部</button>
+                                </div>
+                                <div class="card-body">
+                                    <div id="recent-patients-table">加载中...</div>
+                                </div>
+                            </div>
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3>平台风险分布</h3>
+                                    <span class="badge badge-info" id="total-samples-badge">共 0 份样本</span>
+                                </div>
+                                <div class="card-body" style="padding: 1.5rem;">
+                                    <div style="display:flex; align-items:center; justify-content:center; margin-bottom: 1.5rem;">
+                                        <div style="width: 180px; height: 180px; position: relative;">
+                                            <canvas id="riskChart"></canvas>
+                                        </div>
+                                    </div>
+                                    <div id="risk-legend-container" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;">
+                                        <!-- Legend cards will be injected here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+          // Initialize Risk Chart
+          const riskCanvas = document.getElementById('riskChart');
+          if (riskCanvas) {
+            const riskCtx = riskCanvas.getContext('2d');
+
+            if (this.riskChart) {
+              this.riskChart.destroy();
+              this.riskChart = null;
+            }
+
+            const riskData = p.risk_distribution || {};
+            const orderedKeys = ['高风险', '中风险', '低风险', '正常'];
+            const labels = orderedKeys.filter(k => riskData[k] !== undefined);
+            if (labels.length === 0) labels.push(...Object.keys(riskData));
+
+            const dataValues = labels.map(l => riskData[l] || 0);
+            const totalSamples = dataValues.reduce((a, b) => a + b, 0);
+
+            // Update badge
+            const badge = document.getElementById('total-samples-badge');
+            if (badge) badge.textContent = `共 ${totalSamples} 份样本`;
+
+            const colorMap = {
+              '高风险': { bg: '#ef4444', light: 'rgba(239,68,68,0.1)' },
+              '中风险': { bg: '#f59e0b', light: 'rgba(245,158,11,0.1)' },
+              '低风险': { bg: '#10b981', light: 'rgba(16,185,129,0.1)' },
+              '正常': { bg: '#3b82f6', light: 'rgba(59,130,246,0.1)' }
+            };
+            const bgColors = labels.map(l => colorMap[l]?.bg || '#94a3b8');
+
+            this.riskChart = new Chart(riskCtx, {
+              type: 'doughnut',
+              data: {
+                labels: labels,
+                datasets: [{
+                  data: dataValues,
+                  backgroundColor: bgColors,
+                  borderWidth: 3,
+                  borderColor: '#ffffff',
+                  hoverOffset: 8
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                cutout: '65%',
+                plugins: {
+                  legend: { display: false },
+                  tooltip: {
+                    backgroundColor: '#1e293b',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    padding: 12,
+                    cornerRadius: 8,
+                    displayColors: true,
+                    callbacks: {
+                      label: function (context) {
+                        const val = context.raw;
+                        const pct = totalSamples > 0 ? ((val / totalSamples) * 100).toFixed(1) : 0;
+                        return ` ${val} 例 (${pct}%)`;
+                      }
+                    }
+                  }
+                }
+              }
+            });
+
+            // Render Legend Cards
+            const legendContainer = document.getElementById('risk-legend-container');
+            if (legendContainer) {
+              legendContainer.innerHTML = labels.map((label, i) => {
+                const val = dataValues[i];
+                const pct = totalSamples > 0 ? ((val / totalSamples) * 100).toFixed(0) : 0;
+                const colors = colorMap[label] || { bg: '#94a3b8', light: 'rgba(148,163,184,0.1)' };
+                return `
+                  <div style="background: ${colors.light}; border-radius: 0.75rem; padding: 0.875rem 1rem; border-left: 4px solid ${colors.bg};">
+                    <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.25rem;">${label}</div>
+                    <div style="font-size: 1.25rem; font-weight: 700; color: ${colors.bg};">${val} <span style="font-size: 0.875rem; font-weight: 500; color: #94a3b8;">(${pct}%)</span></div>
+                  </div>
+                `;
+              }).join('');
+            }
+          }
+
+          // Load recent patients
+          const patients = await App.API.get('/api/doctor/patients?per_page=5');
+          this.renderPatientTable(document.getElementById('recent-patients-table'), patients.patients);
+
+        } catch (err) {
+          container.innerHTML = `加载失败: ${err.message}`;
+          console.error(err);
+        }
+      },
+
+      async renderPatientList(container) {
+        const html = `
+                    <div class="flex-between mb-4">
+                        <h2>患者管理</h2>
+                        <div style="display:flex; gap:1rem;">
+                            <input type="text" placeholder="搜索患者..." class="form-input" style="width:200px" onchange="Doctor.searchPatients(this.value)">
+                            <button class="btn btn-primary" onclick="Doctor.openAddPatientModal()">+ 关联患者</button>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <div id="full-patient-table">加载中...</div>
+                    </div>
+                `;
+        container.innerHTML = html;
+        const patients = await App.API.get('/api/doctor/patients?per_page=20');
+        this.renderPatientTable(document.getElementById('full-patient-table'), patients.patients);
+      },
+
+      async searchPatients(query) {
+        if (!query.trim()) {
+          // Reload default list
+          const patients = await App.API.get('/api/doctor/patients?per_page=20');
+          this.renderPatientTable(document.getElementById('full-patient-table'), patients.patients);
+          return;
+        }
+
+        try {
+          // Use the search interface
+          const res = await App.API.get(`/api/search?patient_name=${encodeURIComponent(query)}`);
+          // Map results (exams) to patient-like objects, removing duplicates
+          const patientsMap = new Map();
+          res.results.forEach(r => {
+            if (!patientsMap.has(r.patient_id)) {
+              patientsMap.set(r.patient_id, {
+                patient_id: r.patient_id,
+                name: r.name,
+                age: r.age,
+                gender: r.gender,
+                last_exam_date: r.exam_date,
+                latest_risk_level: r.overall_risk_level
+              });
+            }
+          });
+
+          const patients = Array.from(patientsMap.values());
+          this.renderPatientTable(document.getElementById('full-patient-table'), patients);
+          if (patients.length === 0) {
+            document.getElementById('full-patient-table').innerHTML = '<div class="text-center p-4">未找到匹配的患者</div>';
+          }
+        } catch (err) {
+          App.Toast.show(err.message, 'error');
+        }
+      },
+
+      renderPatientTable(el, patients) {
+        if (!patients || patients.length === 0) {
+          el.innerHTML = `
+              <div class="text-center p-4" style="padding: 3rem 0;">
+                  <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;">📂</div>
+                  <h4 style="color: var(--text-scondary);">暂无患者记录</h4>
+                  <p style="font-size: 0.875rem; color: var(--text-scondary); opacity: 0.8;">当前没有找到匹配的患者信息</p>
+              </div>
+          `;
+          return;
+        }
+
+        const html = `
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>患者ID</th>
+                                <th>姓名</th>
+                                <th>年龄/性别</th>
+                                <th>最近检查</th>
+                                <th>风险评估</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${patients.map(p => `
+                                <tr>
+                                    <td style="font-family:var(--font-mono); font-size:0.875rem;">${p.patient_id}</td>
+                                    <td style="font-weight:600;">${p.name}</td>
+                                    <td>${p.age}岁 / ${p.gender}</td>
+                                    <td>${p.last_exam_date || '-'}</td>
+                                    <td>${this.getRiskBadge(p.latest_risk_level)}</td>
+                                    <td>
+                                        <button class="btn btn-outline" style="padding:0.25rem 0.75rem; font-size:0.8rem;" onclick="Doctor.openPatientReview('${p.patient_id}')">查看档案</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+        el.innerHTML = html;
+      },
+
+      getRiskBadge(level) {
+        if (!level) return '<span class="badge badge-info">无记录</span>';
+        const map = { '高风险': 'error', '中风险': 'warning', '低风险': 'success' };
+        return `<span class="badge badge-${map[level] || 'info'}">${level}</span>`;
+      },
+
+      async openPatientReview(patientId) {
+        try {
+          const history = await App.API.get(`/api/patient/${patientId}/history`);
+
+          if (history.history.length === 0) {
+            App.Toast.show('该患者暂无检查记录', 'info');
+            return;
+          }
+
+          const modal = document.getElementById('review-modal');
+          const content = document.getElementById('review-content');
+          modal.classList.add('active');
+
+          content.innerHTML = `
+             <div class="card" style="max-width:800px; margin:0 auto;">
+                <div class="card-header flex-between">
+                    <h4>${history.patient_name} - 历史检查记录</h4>
+                    <div class="flex-row gap-2">
+                        <button class="btn btn-outline small" onclick="Doctor.openAddTag('${patientId}')">🏷️ 打标签</button>
+                        <button class="btn btn-outline small" onclick="Doctor.renderProgressionView('${patientId}')">📈 病程追踪</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>检查ID</th>
+                                <th>日期</th>
+                                <th>主要诊断</th>
+                                <th>风险等级</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${history.history.map(h => `
+                                <tr>
+                                    <td class="text-mono small">${h.exam_id}</td>
+                                    <td>${h.exam_date}</td>
+                                    <td>${h.primary_diagnosis || '-'}</td>
+                                    <td>${this.getRiskBadge(h.overall_risk_level)}</td>
+                                    <td>
+                                        <button class="btn btn-primary small" onclick="Doctor.openExamReview('${h.exam_id}')">查看报告</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+             </div>
+          `;
+
+        } catch (err) {
+          App.Toast.show(err.message, 'error');
+        }
+      },
+
+      async openAddPatientModal() {
+        const modal = document.getElementById('review-modal');
+        const content = document.getElementById('review-content');
+        modal.classList.add('active');
+
+        content.innerHTML = `
+            <div class="card" style="max-width:500px; margin:0 auto;">
+                <div class="card-header flex-center">
+                    <h4>关联已有患者</h4>
+                </div>
+                <div class="card-body">
+                    <p class="text-secondary small mb-4 text-center">输入患者ID将其添加到您的管理列表</p>
+
+                    <!-- Link Form -->
+                    <form id="form-link" onsubmit="Doctor.linkExistingPatient(event)">
+                        <div class="form-group">
+                            <label class="form-label">患者 ID</label>
+                            <input type="text" name="patient_id" class="form-input" required placeholder="请输入 P 开头的患者ID">
+                        </div>
+                        <div class="alert alert-info small mb-3">
+                            <i class="icon">ℹ️</i> 关联后您将获得该患者病历的查看与管理权限。
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">确认关联</button>
+                    </form>
+                </div>
+            </div>
+        `;
+      },
+
+      async linkExistingPatient(e) {
+        e.preventDefault();
+        const patientId = new FormData(e.target).get('patient_id');
+        try {
+          await App.API.post(`/api/doctor/patients/${patientId}/assign`, {
+            relation_type: 'primary',
+            notes: 'Manually linked'
+          });
+          App.Toast.show('患者关联成功', 'success');
+          document.getElementById('review-modal').classList.remove('active');
+          this.renderPatientList(document.getElementById('main-content'));
+        } catch (err) {
+          App.Toast.show(err.message, 'error');
+        }
+      },
+
+      async openAddTag(patientId) {
+        const type = prompt('请输入标签名称 (例如: 慢病重点):');
+        if (!type) return;
+        const color = prompt('请输入标签颜色 (HEX, 例如: #FF5722):', '#FF5722');
+
+        try {
+          await App.API.post(`/api/doctor/patients/${patientId}/tag`, {
+            tag_type: type,
+            tag_color: color,
+            notes: 'Added via portal'
+          });
+          App.Toast.show('标签添加成功', 'success');
+        } catch (err) {
+          App.Toast.show('添加失败: ' + err.message, 'error');
+        }
+      },
+
+      async renderProgressionView(patientId) {
+        const content = document.getElementById('review-content');
+        content.innerHTML = '<div class="loader">加载中...</div>';
+
+        try {
+          const res = await App.API.get(`/api/doctor/progression/${patientId}`);
+          const progressions = res.progressions;
+          const exams = res.exam_history;
+
+          content.innerHTML = `
+                <div class="card" style="max-width:900px; margin:0 auto;">
+                    <div class="card-header flex-between">
+                         <div>
+                            <h4>病程演变追踪</h4>
+                            <span class="text-secondary small">患者 ID: ${patientId}</span>
+                         </div>
+                         <button class="btn btn-outline" onclick="Doctor.openPatientReview('${patientId}')">🔙 返回列表</button>
+                    </div>
+                    <div class="card-body">
+                        <!-- Create New Tracking -->
+                        <div style="background:#f8fafc; padding:1.5rem; border-radius:0.5rem; margin-bottom:2rem;">
+                            <h5 class="mb-3">新建病情对比</h5>
+                            <form onsubmit="Doctor.submitProgression(event, '${patientId}')" class="grid-cols-2 gap-4">
+                                <div class="form-group">
+                                    <label class="form-label">基准检查 (旧)</label>
+                                    <select name="start_exam_id" class="form-select" required>
+                                        <option value="">选择检查...</option>
+                                        ${exams.map(e => `<option value="${e.exam_id}">${e.exam_date} - ${e.overall_risk_level}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">对比检查 (新)</label>
+                                    <select name="end_exam_id" class="form-select" required>
+                                        <option value="">选择检查...</option>
+                                        ${exams.map(e => `<option value="${e.exam_id}">${e.exam_date} - ${e.overall_risk_level}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div class="form-group col-span-full">
+                                    <label class="form-label">病情评估</label>
+                                    <div class="flex-row gap-4">
+                                        <label><input type="radio" name="progression_status" value="improved"> 🟢 好转</label>
+                                        <label><input type="radio" name="progression_status" value="stable" checked> 🔵 稳定</label>
+                                        <label><input type="radio" name="progression_status" value="worsened"> 🔴 恶化</label>
+                                    </div>
+                                </div>
+                                <div class="form-group col-span-full">
+                                    <label class="form-label">医生评语 & 治疗调整</label>
+                                    <textarea name="doctor_assessment" class="form-textarea" placeholder="请输入对比分析结论（可留空，将自动使用AI分析结果）"></textarea>
+                                </div>
+                                <div class="col-span-full text-right">
+                                    <button type="submit" class="btn btn-primary">生成追踪记录</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- History List -->
+                        <h5 class="mb-3">历史追踪记录</h5>
+                        ${progressions.length === 0 ? '<div class="text-secondary text-center">暂无追踪记录</div>' : `
+                            <div class="space-y-4">
+                                ${progressions.map(p => `
+                                    <div style="border:1px solid var(--border); border-radius:0.5rem; padding:1rem;">
+                                        <div class="flex-between mb-2">
+                                            <div class="font-weight-bold">
+                                                ${p.status_label || (p.progression_status === 'improved' ? '🟢好转' : p.progression_status === 'worsened' ? '🔴恶化' : '🔵稳定')}
+                                                <span class="text-secondary small font-normal ml-2">
+                                                    (${p.tracking_period_days}天间隔)
+                                                </span>
+                                            </div>
+                                            <div class="text-secondary small">${p.created_at.split('T')[0]}</div>
+                                        </div>
+                                        <div class="small text-secondary mb-2">
+                                            对比: ${p.start_date.split('T')[0]} ➔ ${p.end_date.split('T')[0]}
+                                        </div>
+                                        <div style="background:#f1f5f9; padding:0.5rem; border-radius:0.25rem;">
+                                            ${p.doctor_assessment}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `}
+                    </div>
+                </div>
+             `;
+        } catch (err) {
+          content.innerHTML = `<div class="error p-4">加载失败: ${err.message}</div>`;
+        }
+      },
+
+      async submitProgression(e, patientId) {
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(e.target));
+        data.patient_id = patientId;
+
+        if (data.start_exam_id === data.end_exam_id) {
+          App.Toast.show('请选择两个不同的检查进行对比', 'error');
+          return;
+        }
+
+        // 如果没有填写医生评语，则使用AI分析结果生成默认评语
+        if (!data.doctor_assessment || data.doctor_assessment.trim() === '') {
+          try {
+            // 获取两次检查的报告
+            const [startReport, endReport] = await Promise.all([
+              App.API.get(`/api/report/${data.start_exam_id}`),
+              App.API.get(`/api/report/${data.end_exam_id}`)
+            ]);
+
+            const startRisk = startReport.comprehensive_report?.overall_risk_level || '未知';
+            const endRisk = endReport.comprehensive_report?.overall_risk_level || '未知';
+            const startDiag = startReport.comprehensive_report?.primary_diagnosis || '未知';
+            const endDiag = endReport.comprehensive_report?.primary_diagnosis || '未知';
+
+            const statusText = data.progression_status === 'improved' ? '好转' :
+              data.progression_status === 'worsened' ? '恶化' : '稳定';
+
+            data.doctor_assessment = `AI分析结果：患者病情${statusText}。\n` +
+              `基准检查：风险等级 ${startRisk}，诊断 ${startDiag}。\n` +
+              `对比检查：风险等级 ${endRisk}，诊断 ${endDiag}。`;
+          } catch (err) {
+            // 如果获取失败，使用简单默认值
+            const statusText = data.progression_status === 'improved' ? '好转' :
+              data.progression_status === 'worsened' ? '恶化' : '稳定';
+            data.doctor_assessment = `患者病情评估为${statusText}，建议继续观察。`;
+          }
+        }
+
+        try {
+          await App.API.post('/api/doctor/progression/create', data);
+          App.Toast.show('创建成功', 'success');
+          this.renderProgressionView(patientId);
+        } catch (err) {
+          App.Toast.show(err.message, 'error');
+        }
+      },
+
+      async openExamReview(examId, readOnly = false) {
+        const modal = document.getElementById('review-modal');
+        const content = document.getElementById('review-content');
+        modal.classList.add('active');
+        content.innerHTML = '<div class="loader">加载中...</div>';
+
+        try {
+          // Parallel fetch for report, feedback, and consultation status
+          const [resReport, resFeedback, resConsult] = await Promise.all([
+            App.API.get(`/api/report/${examId}`),
+            App.API.get(`/api/doctor/feedback/${examId}`).catch(() => ({ total_feedbacks: 0 })),
+            App.API.get(`/api/doctor/consultation/list?type=requested&status=pending`).catch(() => ({ consultations: [] }))
+          ]);
+
+          const r = resReport.comprehensive_report;
+          const fundus = resReport.fundus_analysis;
+          const ecg = resReport.ecg_analysis;
+          const feedback = resFeedback.feedbacks && resFeedback.feedbacks.length > 0 ? resFeedback.feedbacks[0] : null;
+          const activeConsultation = resConsult.consultations ? resConsult.consultations.find(c => c.exam_id === examId) : null;
+
+          // Diagnosis Display Logic
+          let diagnosisHtml = `<div style="font-size:1.1rem;margin-bottom:1rem;">${r.primary_diagnosis}</div>`;
+          if (feedback && feedback.feedback_type === 'correction' && feedback.corrected_diagnosis) {
+            diagnosisHtml = `
+                  <div style="font-size:1.1rem;margin-bottom:1rem;">
+                      <span style="text-decoration: line-through; color: var(--text-scondary); margin-right: 0.5rem;">${r.primary_diagnosis}</span>
+                      <span style="color: var(--success); font-weight: bold;">${feedback.corrected_diagnosis}</span>
+                  </div>
+              `;
+          }
+
+          content.innerHTML = `
+                        <div class="grid-cols-2 gap-4" style="height:100%; overflow-y:auto;">
+                            <!-- Left: Medical Data -->
+                            <div class="space-y-4">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h4>眼底影像分析</h4>
+                                    </div>
+                                    <div class="card-body text-center">
+                                        ${(() => {
+              let imgPath = resReport.exam_info && resReport.exam_info.fundus_image_path;
+              if (imgPath) {
+                // 处理Windows反斜杠并确保以/开头
+                imgPath = imgPath.replace(/\\\\/g, '/');
+                if (!imgPath.startsWith('/')) imgPath = '/' + imgPath;
+                return `
+                                              <img src="${imgPath}"
+                                                   style="max-width:100%; max-height:300px; object-fit:contain; border-radius:0.5rem; cursor:pointer;"
+                                                   onclick="window.open(this.src)"
+                                                   onerror="this.onerror=null; this.src=''; this.alt='图片加载失败'; this.style.display='none'; this.parentElement.innerHTML='<div class=\\'p-4 text-center text-secondary\\'>图片加载失败</div>';"
+                                                   alt="Fundus Image">
+                                              ${fundus ? `
+                                              <div class="mt-2 text-left">
+                                                  <div>病灶: <strong>${fundus.lesion_count || 0}处</strong></div>
+                                                  <div class="small text-secondary">检测到的病灶类型: ${fundus.lesion_types || '-'}</div>
+                                              </div>` : ''}
+                                            `;
+              } else {
+                return '<div class="p-4 text-center">无影像数据</div>';
+              }
+            })()}
+                                    </div>
+                                </div>
+
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h4>ECG 心电分析</h4>
+                                    </div>
+                                    <div class="card-body">
+                                        ${ecg ? `
+                                            <div class="stat-grid">
+                                                <div>心率: <strong>${ecg.heart_rate} bpm</strong></div>
+                                                <div>节律: ${ecg.rhythm_type}</div>
+                                            </div>
+                                        ` : '<div class="p-4 text-center">无ECG数据</div>'}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right: Analysis & Feedback -->
+                            <div class="ai-report-panel">
+                                <div class="flex-between mb-4">
+                                    <h3>AI综合诊断报告</h3>
+                                    ${!readOnly ? `
+                                        <div class="flex-row gap-2">
+                                            <button class="btn btn-outline small"
+                                                onclick="Doctor.openConsultationRequest('${examId}')"
+                                                ${activeConsultation ? 'disabled title="已有正在进行中的会诊"' : ''}>
+                                                ${activeConsultation ? '📅 会诊进行中' : '👨‍⚕️ 发起会诊'}
+                                            </button>
+                                            <button class="btn btn-outline small" onclick="Doctor.exportReport('${examId}')">📥 导出</button>
+                                        </div>
+                                    ` : ''}
+                                </div>
+
+                                <div style="margin-bottom:1.5rem">
+                                    <div class="stat-label">风险等级</div>
+                                    <div class="stat-value ${this.getRiskClass(feedback ? (feedback.corrected_risk_level || r.overall_risk_level) : r.overall_risk_level)}">
+                                        ${feedback ? (feedback.corrected_risk_level || r.overall_risk_level) : r.overall_risk_level}
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">主要诊断</label>
+                                    ${diagnosisHtml}
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">诊断依据</label>
+                                    <div style="background:#f8fafc; padding:1rem; border-radius:0.5rem; font-size:0.9rem;">
+                                        ${this.formatEvidence(r.diagnostic_evidence)}
+                                    </div>
+                                </div>
+
+                                <hr style="border:0; border-top:1px solid var(--border); margin:1.5rem 0;">
+
+                                <h4>医生反馈</h4>
+                                ${feedback ? `
+                                    <div class="alert alert-success">
+                                        <strong>✅ 已提交反馈</strong><br>
+                                        <small class="text-secondary">${feedback.created_at.replace('T', ' ')}</small>
+                                        <div class="mt-2">
+                                            <strong>类型:</strong> ${feedback.feedback_type === 'confirmation' ? '确认无误' : feedback.feedback_type === 'correction' ? '修正诊断' : '仅备注'}<br>
+                                            <strong>意见:</strong> ${feedback.detailed_comments || '无'}
+                                            ${feedback.is_teaching_case ? '<br><span class="text-primary">📚 已收入教学案例库</span>' : ''}
+                                        </div>
+                                    </div>
+                                ` : !readOnly ? `
+                                    <form onsubmit="Doctor.submitFeedback(event, '${examId}')">
+                                        <div class="form-group">
+                                            <label class="form-label">反馈类型</label>
+                                            <select name="feedback_type" class="form-select" onchange="document.getElementById('correction-fields').style.display = this.value === 'correction' ? 'block' : 'none'">
+                                                <option value="confirmation">✅ 确认无误</option>
+                                                <option value="correction">⚠️ 修正诊断</option>
+                                                <option value="comment">💬 仅备注</option>
+                                            </select>
+                                        </div>
+
+                                        <div id="correction-fields" style="display:none; background: #fff0f0; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                                            <div class="form-group">
+                                                <label class="form-label">修正后诊断</label>
+                                                <input type="text" name="corrected_diagnosis" class="form-input" placeholder="请输入正确的诊断结论">
+                                            </div>
+                                            <div class="form-group">
+                                                <label class="form-label">修正后风险等级</label>
+                                                <select name="corrected_risk_level" class="form-select">
+                                                    <option value="低风险">低风险</option>
+                                                    <option value="中风险">中风险</option>
+                                                    <option value="高风险">高风险</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label class="form-label">详细意见</label>
+                                            <textarea name="detailed_comments" class="form-textarea" placeholder="请输入您的专业意见..."></textarea>
+                                        </div>
+
+                                        <div class="form-group" style="background: #f0fdf4; padding: 0.75rem; border-radius: 0.5rem;">
+                                            <label class="flex-row" style="align-items:center; gap:0.5rem; cursor:pointer;">
+                                                <input type="checkbox" name="is_teaching_case" onchange="document.getElementById('teaching-notes').style.display = this.checked ? 'block' : 'none'">
+                                                <span style="font-weight:500; color:var(--success);">📥 收入教学案例库</span>
+                                            </label>
+                                            <div id="teaching-notes" style="display:none; margin-top:0.5rem;">
+                                                <textarea name="teaching_notes" class="form-textarea" placeholder="请输入教学要点和分析..." style="font-size:0.9rem;"></textarea>
+                                            </div>
+                                        </div>
+
+                                        <button type="submit" class="btn btn-primary" style="width:100%">提交反馈</button>
+                                    </form>
+                                ` : '<div class="text-center text-secondary p-4">只读模式 (教学案例或历史归档)</div>'}
+                            </div>
+                        </div>
+                    `;
+        } catch (err) {
+          content.innerHTML = `<div class="p-4 text-center error">加载失败: ${err.message}</div>`;
+        }
+      },
+
+      async openConsultationRequest(examId) {
+        // Simple prompt based modal for now, or inject a modal
+        const reason = prompt('请输入会诊申请理由 (必填):');
+        if (!reason) return;
+
+        const question = prompt('请输入主要临床问题 (必填):');
+        if (!question) return;
+
+        const doctorId = prompt('指定会诊医生ID (选填, 为空则公开会诊):');
+
+        try {
+          await App.API.post('/api/doctor/consultation/request', {
+            exam_id: examId,
+            request_reason: reason,
+            clinical_question: question,
+            consulting_doctor_id: doctorId || null,
+            consultation_type: 'routine'
+          });
+          App.Toast.show('会诊申请已提交', 'success');
+        } catch (err) {
+          App.Toast.show('申请失败: ' + err.message, 'error');
+        }
+      },
+
+      async exportReport(examId) {
+        try {
+          const data = await App.API.get(`/api/export/report/${examId}`);
+          const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+          const downloadAnchorNode = document.createElement('a');
+          downloadAnchorNode.setAttribute("href", dataStr);
+          downloadAnchorNode.setAttribute("download", `report_${examId}.json`);
+          document.body.appendChild(downloadAnchorNode); // required for firefox
+          downloadAnchorNode.click();
+          downloadAnchorNode.remove();
+        } catch (err) {
+          App.Toast.show('导出失败: ' + err.message, 'error');
+        }
+      },
+
+      getRiskClass(level) {
+        if (level === '高风险') return 'risk-high';
+        if (level === '中风险') return 'risk-mid';
+        return 'risk-low';
+      },
+
+      formatEvidence(evidenceJson) {
+        try {
+          const e = JSON.parse(evidenceJson);
+          return Object.entries(e).map(([k, v]) => `<div><strong>${k}:</strong> ${v}</div>`).join('');
+        } catch {
+          return evidenceJson;
+        }
+      },
+
+      async submitFeedback(e, examId) {
+        e.preventDefault();
+        const btn = e.target.querySelector('button[type="submit"]');
+        const formData = new FormData(e.target);
+
+        const data = {
+          exam_id: examId,
+          feedback_type: formData.get('feedback_type'),
+          detailed_comments: formData.get('detailed_comments'),
+          corrected_diagnosis: formData.get('corrected_diagnosis'),
+          corrected_risk_level: formData.get('corrected_risk_level'),
+          is_teaching_case: formData.get('is_teaching_case') === 'on',
+          teaching_notes: formData.get('teaching_notes'),
+          feedback_category: formData.get('feedback_type') === 'correction' ? 'false_negative' : 'correct' // Simplified logic
+        };
+
+        try {
+          btn.disabled = true;
+          btn.textContent = '提交中...';
+          await App.API.post('/api/doctor/feedback', data);
+          App.Toast.show('反馈提交成功', 'success');
+          // Refresh
+          this.openExamReview(examId);
+        } catch (err) {
+          App.Toast.show(err.message, 'error');
+          btn.disabled = false;
+          btn.textContent = '提交反馈';
+        }
+      },
+
+      async openConsultationRequest(examId) {
+        const modal = document.getElementById('review-modal');
+        const content = document.getElementById('review-content');
+        modal.classList.add('active');
+        content.innerHTML = '<div class="loader">正在加载医生列表...</div>';
+
+        try {
+          // 1. Fetch history to find doctors
+          const res = await App.API.get('/api/doctor/consultation/list?type=all');
+          const doctorsMap = new Map();
+
+          res.consultations.forEach(c => {
+            if (c.requesting_doctor_id && c.requesting_doctor_id !== this.state.doctorId) {
+              doctorsMap.set(c.requesting_doctor_id, c.requesting_doctor_name);
+            }
+            if (c.consulting_doctor_id && c.consulting_doctor_id !== this.state.doctorId) {
+              doctorsMap.set(c.consulting_doctor_id, c.consulting_doctor_name);
+            }
+          });
+
+          const knownDoctors = Array.from(doctorsMap.entries()).map(([id, name]) => ({ id, name }));
+
+          // 2. Render Form
+          content.innerHTML = `
+      < div class="card" style = "max-width:600px; margin:0 auto;" >
+                <div class="card-header">
+                    <h4>发起会诊申请</h4>
+                </div>
+                <div class="card-body">
+                    <form onsubmit="Doctor.submitConsultationRequest(event, '${examId}')">
+                        <div class="form-group">
+                            <label class="form-label">申请理由 (必填)</label>
+                            <textarea name="request_reason" class="form-textarea" required placeholder="请描述发起会诊的原因..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">主要临床问题 (必填)</label>
+                            <textarea name="clinical_question" class="form-textarea" required placeholder="希望解决的具体问题..."></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">指定会诊医生</label>
+                            <div class="flex-row gap-2">
+                                <select id="doctor-select" class="form-select" onchange="Doctor.onDoctorSelectChange(this)">
+                                    <option value="">-- 请选择医生 --</option>
+                                    ${knownDoctors.map(d => `<option value="${d.id}">${d.name} (${d.id})</option>`).join('')}
+                                    <option value="manual">➕ 手动输入ID...</option>
+                                </select>
+                                <input type="text" name="consulting_doctor_id" id="doctor-input" class="form-input" style="display:none;" placeholder="输入医生ID">
+                            </div>
+                            <div class="text-secondary small mt-1">
+                                ${knownDoctors.length > 0 ? '以上列表基于历史会诊记录生成' : '暂无常用医生记录，请手动输入'}
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info small mb-3">
+                            <i class="icon">ℹ️</i> 发起后，对方医生将在“会诊中心”收到通知。
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100">提交申请</button>
+                    </form>
+                </div>
+            </div >
+      `;
+
+        } catch (err) {
+          App.Toast.show(err.message, 'error');
+          modal.classList.remove('active');
+        }
+      },
+
+      onDoctorSelectChange(select) {
+        const input = document.getElementById('doctor-input');
+        if (select.value === 'manual') {
+          input.style.display = 'block';
+          input.value = '';
+          input.focus();
+        } else {
+          input.style.display = 'none';
+          input.value = select.value;
+        }
+      },
+
+      async submitConsultationRequest(e, examId) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const data = Object.fromEntries(formData);
+
+        let doctorId = document.getElementById('doctor-input').value;
+
+        if (!doctorId) {
+          App.Toast.show('必须指定会诊医生', 'warning');
+          return;
+        }
+
+        try {
+          await App.API.post('/api/doctor/consultation/request', {
+            exam_id: examId,
+            request_reason: data.request_reason,
+            clinical_question: data.clinical_question,
+            consulting_doctor_id: doctorId,
+            consultation_type: 'routine'
+          });
+          App.Toast.show('会诊申请已提交', 'success');
+          document.getElementById('review-modal').classList.remove('active');
+        } catch (err) {
+          App.Toast.show('申请失败: ' + err.message, 'error');
+        }
+      },
+
+      async submitConsultationResponse(e, id) {
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(e.target));
+        try {
+          await App.API.post(`/api/doctor/consultation/${id}/respond`, data);
+          App.Toast.show('会诊意见已提交', 'success');
+          document.getElementById('review-modal').classList.remove('active');
+          this.renderConsultations(document.getElementById('main-content'));
+        } catch (err) {
+          App.Toast.show(err.message, 'error');
+        }
+      },
+
+      async openQuickConsultation() {
+        const modal = document.getElementById('review-modal');
+        const content = document.getElementById('review-content');
+        modal.classList.add('active');
+
+        content.innerHTML = `
+            <div class="card" style="max-width:800px; margin:0 auto; min-height:500px;">
+                <div class="card-header flex-between">
+                    <h4>快速发起会诊</h4>
+                    <input type="text" class="form-input" placeholder="输入姓名或ID搜索患者..." style="width:250px;" onkeyup="if(event.key === 'Enter') Doctor.searchPatientForConsult(this.value)">
+                </div>
+                <div class="card-body">
+                    <div id="quick-consult-list">
+                        <div class="loader">正在扫描高风险病例...</div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        try {
+          // Fetch patients using existing API
+          const res = await App.API.get('/api/doctor/patients?per_page=100'); // Get more to filter
+          const highRiskPatients = res.patients.filter(p => p.latest_risk_level === '高风险');
+
+          const listEl = document.getElementById('quick-consult-list');
+
+          if (highRiskPatients.length === 0) {
+            listEl.innerHTML = `
+                    <div class="text-center p-5">
+                        <div style="font-size:3rem; margin-bottom:1rem;">🎉</div>
+                        <h3>太棒了！暂无未处理的高风险病例</h3>
+                        <p class="text-secondary">您可以通过上方搜索栏查找其他患者发起会诊</p>
+                    </div>
+                `;
+          } else {
+            listEl.innerHTML = `
+                    <div class="alert alert-warning mb-4">
+                        <strong>⚠️ 发现 ${highRiskPatients.length} 位高风险患者建议关注</strong>
+                        <div class="small">建议您优先处理以下病例</div>
+                    </div>
+                    <div class="grid-cols-2" style="gap:1rem;">
+                        ${highRiskPatients.map(p => `
+                            <div class="card feature-card" style="border:1px solid #fed7aa;">
+                                <div class="card-body">
+                                    <div class="flex-between mb-2">
+                                        <strong>${p.name}</strong>
+                                        <span class="badge badge-error">高风险</span>
+                                    </div>
+                                    <div class="text-secondary small mb-3">
+                                        ID: ${p.patient_id}<br>
+                                        最近检查: ${p.last_exam_date || '未知'}
+                                    </div>
+                                    <button class="btn btn-primary small w-100" onclick="Doctor.selectPatientForConsult('${p.patient_id}')">查看检查记录</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+          }
+        } catch (err) {
+          document.getElementById('quick-consult-list').innerHTML = `<div class="text-error">加载失败: ${err.message}</div>`;
+        }
+      },
+
+      async searchPatientForConsult(query) {
+        if (!query) return;
+        const container = document.getElementById('quick-consult-list');
+        container.innerHTML = '<div class="loader">搜索中...</div>';
+
+        try {
+          const res = await App.API.get(`/api/search?patient_name=${encodeURIComponent(query)}`);
+          // Distinct patients
+          const seen = new Set();
+          const uniquePatients = [];
+          res.results.forEach(r => {
+            if (!seen.has(r.patient_id)) {
+              seen.add(r.patient_id);
+              uniquePatients.push(r);
+            }
+          });
+
+          if (uniquePatients.length === 0) {
+            container.innerHTML = '<div class="text-center p-4 text-secondary">未找到匹配患者</div>';
+            return;
+          }
+
+          container.innerHTML = `
+                  <h5 class="mb-3">搜索结果</h5>
+                  <div class="grid-cols-2" style="gap:1rem;">
+                      ${uniquePatients.map(p => `
+                          <div class="card feature-card">
+                              <div class="card-body">
+                                  <div class="flex-between mb-2">
+                                      <strong>${p.name}</strong>
+                                      <span class="badge badge-info small">${p.age}岁</span>
+                                  </div>
+                                  <div class="text-secondary small mb-3">ID: ${p.patient_id}</div>
+                                  <button class="btn btn-outline small w-100" onclick="Doctor.selectPatientForConsult('${p.patient_id}')">选择</button>
+                              </div>
+                          </div>
+                      `).join('')}
+                  </div>
+              `;
+        } catch (err) {
+          container.innerHTML = `<div class="text-error">搜索失败: ${err.message}</div>`;
+        }
+      },
+
+      async selectPatientForConsult(patientId) {
+        const container = document.getElementById('quick-consult-list');
+        container.innerHTML = '<div class="loader">正在加载检查记录...</div>';
+
+        try {
+          const res = await App.API.get(`/api/patient/${patientId}/history`);
+          if (res.history.length === 0) {
+            container.innerHTML = '<div class="text-center p-4">该患者暂无检查记录，无法发起会诊</div>';
+            return;
+          }
+
+          container.innerHTML = `
+                  <div class="flex-between mb-3">
+                      <h5>${res.patient_name} 的检查记录</h5>
+                      <button class="btn btn-small" onclick="Doctor.openQuickConsultation()">返回列表</button>
+                  </div>
+                  <table class="data-table">
+                      <thead>
+                          <tr>
+                              <th>日期</th>
+                              <th>诊断</th>
+                              <th>风险</th>
+                              <th>操作</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                          ${res.history.map(h => `
+                              <tr>
+                                  <td>${h.exam_date}</td>
+                                  <td>${h.primary_diagnosis || '-'}</td>
+                                  <td>${this.getRiskBadge(h.overall_risk_level)}</td>
+                                  <td>
+                                      <button class="btn btn-primary small" onclick="Doctor.openConsultationRequest('${h.exam_id}')">对此发起会诊</button>
+                                  </td>
+                              </tr>
+                          `).join('')}
+                      </tbody>
+                  </table>
+              `;
+        } catch (err) {
+          container.innerHTML = `<div class="text-error">加载失败: ${err.message}</div>`;
+        }
+      },
+
+      // ========== 新增功能：使用之前未用到的接口 ==========
+
+      // 1. 使用 /api/health 接口检查系统健康状态
+      async checkSystemHealth() {
+        const dot = document.getElementById('health-dot');
+        const text = document.getElementById('health-text');
+
+        try {
+          const res = await fetch('/api/health');
+          const data = await res.json();
+
+          if (data.status === 'healthy') {
+            this.state.systemHealthy = true;
+            if (dot) dot.style.background = '#10b981';
+            if (text) text.textContent = '系统正常';
+          } else {
+            this.state.systemHealthy = false;
+            if (dot) dot.style.background = '#f59e0b';
+            if (text) text.textContent = '服务异常';
+          }
+        } catch (err) {
+          this.state.systemHealthy = false;
+          if (dot) dot.style.background = '#ef4444';
+          if (text) text.textContent = '连接失败';
+        }
+      },
+
+      // 打开设置页面的快捷方式
+      openSettings() {
+        this.switchView('settings');
+      },
+
+      // 2. 使用 /api/doctor/profile GET 和 PUT 接口管理个人资料
+      async renderSettings(container) {
+        try {
+          // 获取医生资料 (GET /api/doctor/profile)
+          const profile = await App.API.get('/api/doctor/profile');
+          const d = profile.doctor;
+
+          // 同时获取详细的工作台统计 (使用 /api/doctor/statistics/dashboard)
+          let dashStats = null;
+          try {
+            dashStats = await App.API.get('/api/doctor/statistics/dashboard');
+          } catch (e) {
+            console.log('Dashboard stats not available:', e);
+          }
+
+          container.innerHTML = `
+            <div class="flex-between mb-4">
+              <h2>⚙️ 个人设置</h2>
+            </div>
+
+            <div class="grid-cols-2 gap-4">
+              <!-- 左侧：个人资料编辑 -->
+              <div class="card">
+                <div class="card-header">
+                  <h3>👤 个人资料</h3>
+                </div>
+                <div class="card-body">
+                  <form onsubmit="Doctor.updateProfile(event)">
+                    <div class="form-group">
+                      <label class="form-label">医生ID</label>
+                      <input type="text" class="form-input" value="${d.doctor_id}" disabled style="background:#f1f5f9;">
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">姓名</label>
+                      <input type="text" name="name" class="form-input" value="${d.name || ''}" required>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">职称</label>
+                      <select name="title" class="form-select">
+                        <option value="住院医师" ${d.title === '住院医师' ? 'selected' : ''}>住院医师</option>
+                        <option value="主治医师" ${d.title === '主治医师' ? 'selected' : ''}>主治医师</option>
+                        <option value="副主任医师" ${d.title === '副主任医师' ? 'selected' : ''}>副主任医师</option>
+                        <option value="主任医师" ${d.title === '主任医师' ? 'selected' : ''}>主任医师</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">科室</label>
+                      <input type="text" name="department" class="form-input" value="${d.department || ''}" required>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">专业领域</label>
+                      <input type="text" name="specialty" class="form-input" value="${d.specialty || ''}" placeholder="如：糖尿病视网膜病变、心血管疾病">
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">联系邮箱</label>
+                      <input type="email" name="email" class="form-input" value="${d.email || ''}" placeholder="用于接收会诊通知">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width:100%">💾 保存更改</button>
+                  </form>
+                </div>
+              </div>
+
+              <!-- 右侧：详细统计 -->
+              <div class="space-y-4">
+                <!-- 详细工作统计 (使用 /api/doctor/statistics/dashboard) -->
+                <div class="card">
+                  <div class="card-header">
+                    <h3>📊 工作统计详情</h3>
+                  </div>
+                  <div class="card-body">
+                    ${dashStats ? `
+                      <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); gap:1rem;">
+                        <div style="background:#f0fdf4;padding:1rem;border-radius:0.5rem;text-align:center;">
+                          <div style="font-size:1.5rem;font-weight:700;color:#10b981;">${dashStats.my_patients || 0}</div>
+                          <div class="text-secondary small">我的患者</div>
+                        </div>
+                        <div style="background:#eff6ff;padding:1rem;border-radius:0.5rem;text-align:center;">
+                          <div style="font-size:1.5rem;font-weight:700;color:#3b82f6;">${dashStats.today_examinations || 0}</div>
+                          <div class="text-secondary small">今日检查</div>
+                        </div>
+                        <div style="background:#fef3c7;padding:1rem;border-radius:0.5rem;text-align:center;">
+                          <div style="font-size:1.5rem;font-weight:700;color:#f59e0b;">${dashStats.pending_reviews || 0}</div>
+                          <div class="text-secondary small">待审核</div>
+                        </div>
+                        <div style="background:#fce7f3;padding:1rem;border-radius:0.5rem;text-align:center;">
+                          <div style="font-size:1.5rem;font-weight:700;color:#ec4899;">${dashStats.consultations_pending || 0}</div>
+                          <div class="text-secondary small">待处理会诊</div>
+                        </div>
+                      </div>
+                      <div class="mt-3 p-3" style="background:#f8fafc;border-radius:0.5rem;">
+                        <div class="text-secondary small mb-2">近7天工作量趋势</div>
+                        <div style="display:flex;gap:0.5rem;align-items:flex-end;height:60px;">
+                          ${(dashStats.weekly_trend || [0, 0, 0, 0, 0, 0, 0]).map((val, i) => {
+            const max = Math.max(...(dashStats.weekly_trend || [1])) || 1;
+            const height = (val / max) * 100;
+            return `<div style="flex:1;background:var(--primary);border-radius:2px;height:${Math.max(height, 5)}%;opacity:${0.5 + (i * 0.07)};" title="第${i + 1}天: ${val}"></div>`;
+          }).join('')}
+                        </div>
+                      </div>
+                    ` : `
+                      <div class="text-center text-secondary p-4">
+                        <p>详细统计数据暂不可用</p>
+                        <p class="small">接口: /api/doctor/statistics/dashboard</p>
+                      </div>
+                    `}
+                  </div>
+                </div>
+
+                <!-- 账户信息 -->
+                <div class="card">
+                  <div class="card-header">
+                    <h3>🔐 账户信息</h3>
+                  </div>
+                  <div class="card-body">
+                    <p class="small text-secondary mb-2">注册时间: ${d.created_at ? d.created_at.split('T')[0] : '未知'}</p>
+                    <p class="small text-secondary">当前会话: ${this.state.doctorId}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        } catch (err) {
+          container.innerHTML = `<div class="card p-4 text-center text-error">加载失败: ${err.message}</div>`;
+        }
+      },
+
+      // 3. 使用 PUT /api/doctor/profile 更新医生资料
+      async updateProfile(e) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const data = Object.fromEntries(formData);
+        const btn = e.target.querySelector('button[type="submit"]');
+
+        try {
+          btn.disabled = true;
+          btn.textContent = '保存中...';
+
+          await App.API.put('/api/doctor/profile', data);
+
+          // 更新本地存储的医生姓名
+          if (data.name) {
+            localStorage.setItem('doctor_name', data.name);
+            document.getElementById('doctor-name').textContent = data.name;
+          }
+
+          App.Toast.show('✅ 个人资料已更新', 'success');
+          btn.disabled = false;
+          btn.textContent = '💾 保存更改';
+        } catch (err) {
+          App.Toast.show('保存失败: ' + err.message, 'error');
+          btn.disabled = false;
+          btn.textContent = '💾 保存更改';
+        }
+      }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      Doctor.init();
+    });
+  </script>
+</body>
+
+</html>

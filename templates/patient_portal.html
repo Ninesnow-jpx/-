@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>患者服务大厅 - 多模态慢性病智能筛查平台</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <style>
+    .portal-layout {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 2rem;
+      padding: 2rem 0;
+      min-height: calc(100vh - 70px);
+    }
+
+    .step-progress {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 2rem;
+      position: relative;
+    }
+
+    .step-progress::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--border);
+      z-index: 0;
+    }
+
+    .step-item {
+      position: relative;
+      z-index: 1;
+      background: var(--surface);
+      padding: 0.5rem 1rem;
+      border-radius: 2rem;
+      border: 1px solid var(--border);
+      font-size: 0.875rem;
+      color: var(--text-scondary);
+      transition: all 0.3s;
+    }
+
+    .step-item.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    .file-drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 1rem;
+      padding: 3rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .file-drop-zone:hover,
+    .file-drop-zone.drag-over {
+      border-color: var(--primary);
+      background: var(--primary-light);
+    }
+
+    .upload-success-check {
+      color: var(--success);
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+
+<body>
+  <nav class="navbar">
+    <div class="container navbar-content">
+      <a href="/" class="brand">
+        <div
+          style="width:32px;height:32px;background:var(--primary);border-radius:8px;display:grid;place-items:center;color:white;">
+          ✚</div>
+        患者服务大厅
+      </a>
+      <div class="nav-links">
+        <span id="current-patient-name" style="font-weight:600; color:var(--primary);"></span>
+        <button onclick="Portal.logout()" class="btn btn-outline"
+          style="padding:0.4rem 1rem; font-size:0.875rem;">退出</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container portal-layout">
+    <!-- Sidebar -->
+    <aside>
+      <div class="card" style="position:sticky; top: 90px;">
+        <div class="card-body">
+          <button class="btn btn-primary" onclick="Portal.startNewScreening()"
+            style="width:100%; margin-bottom:1.5rem;">
+            + 发起新筛查
+          </button>
+
+          <div class="nav-links" style="flex-direction:column; gap:0.5rem;">
+            <a href="#" onclick="Portal.showHistory()" class="nav-link active"
+              style="padding: 0.75rem; border-radius: 0.5rem; background: var(--background);">
+              📋 历史记录
+            </a>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main id="main-content">
+      <!-- Content injected by JS -->
+      <div id="loading-state" class="text-center" style="margin-top: 4rem;">
+        <div style="font-size: 2rem; margin-bottom: 1rem;">🏥</div>
+        <p>正在加载数据...</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modals -->
+  <!-- Registration Modal -->
+  <div id="modal-register" class="modal-overlay">
+    <div class="modal">
+      <div class="card-header">
+        <h3>新患者登记</h3>
+      </div>
+      <div class="card-body">
+        <form id="register-form" onsubmit="Portal.handleRegister(event)">
+          <div class="form-group">
+            <label class="form-label">姓名</label>
+            <input type="text" name="name" class="form-input" required>
+          </div>
+          <div class="grid-cols-2">
+            <div class="form-group">
+              <label class="form-label">年龄</label>
+              <input type="number" name="age" class="form-input" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">性别</label>
+              <select name="gender" class="form-select">
+                <option value="男">男</option>
+                <option value="女">女</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">联系电话</label>
+            <input type="tel" name="phone" class="form-input" required>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%">提交登记</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+  <script>
+    const Portal = {
+      state: {
+        patientId: localStorage.getItem('patient_id'),
+        currentExamId: null
+      },
+
+      async init() {
+        if (!this.state.patientId) {
+          this.showRegistration();
+        } else {
+          this.loadHistory();
+          const name = localStorage.getItem('patient_name') || '患者';
+          document.getElementById('current-patient-name').textContent = `👋 你好，${name}`;
+        }
+      },
+
+      logout() {
+        localStorage.removeItem('patient_id');
+        localStorage.removeItem('patient_name');
+        window.location.href = '/login';
+      },
+
+      showRegistration() {
+        $('.modal-overlay').classList.add('active');
+      },
+
+      async handleRegister(e) {
+        e.preventDefault();
+        const btn = e.target.querySelector('button');
+        const formData = new FormData(e.target);
+        const data = Object.fromEntries(formData);
+        data.age = parseInt(data.age);
+
+        try {
+          App.UI.setLoading(btn, true);
+          const res = await App.API.post('/api/patient/register', data);
+
+          this.state.patientId = res.patient_id;
+          localStorage.setItem('patient_id', res.patient_id);
+          localStorage.setItem('patient_name', data.name);
+
+          $('.modal-overlay').classList.remove('active');
+          App.Toast.show('登记成功！');
+          this.init();
+        } catch (err) {
+          App.UI.setLoading(btn, false);
+        }
+      },
+
+      showHistory() {
+        this.loadHistory();
+      },
+
+      async loadHistory() {
+        try {
+          // Default to all history first
+          const res = await App.API.get(`/api/patient/${this.state.patientId}/history`);
+          this.renderHistory(res.history);
+        } catch (err) {
+          $('#main-content').innerHTML = `<div class="card"><div class="card-body text-center">无法加载历史记录 (${err.message})</div></div>`;
+        }
+      },
+
+      async searchHistory(event) {
+        if (event) event.preventDefault();
+
+        const riskLevel = document.getElementById('search-risk').value;
+        const patientName = localStorage.getItem('patient_name');
+
+        try {
+          let url = `/api/search?patient_name=${encodeURIComponent(patientName)}`;
+          if (riskLevel) {
+            url += `&risk_level=${encodeURIComponent(riskLevel)}`;
+          }
+
+          const res = await App.API.get(url);
+          // Filter to ensure we only show this patient's records (double safety)
+          const myRecords = res.results.filter(r => r.patient_id === this.state.patientId);
+          this.renderHistory(myRecords);
+
+          if (myRecords.length === 0) {
+            App.Toast.show('没有找到符合条件的记录', 'info');
+          }
+        } catch (err) {
+          App.Toast.show('搜索失败: ' + err.message, 'error');
+        }
+      },
+
+      renderHistory(history) {
+        // Search Filter UI
+        const filterHtml = `
+            <div class="card mb-4">
+                <div class="card-body" style="display:flex; gap:1rem; align-items:center;">
+                    <span style="font-weight:600;">🔍 记录筛选:</span>
+                    <select id="search-risk" class="form-select" style="width:150px;">
+                        <option value="">全部风险等级</option>
+                        <option value="高风险">高风险</option>
+                        <option value="中风险">中风险</option>
+                        <option value="低风险">低风险</option>
+                    </select>
+                    <button class="btn btn-primary small" onclick="Portal.searchHistory(event)">搜索</button>
+                    <button class="btn btn-outline small" onclick="Portal.loadHistory()">重置</button>
+                </div>
+            </div>
+        `;
+
+        if (!history || history.length === 0) {
+          $('#main-content').innerHTML = `
+                        ${filterHtml}
+                        <div class="card">
+                            <div class="card-body text-center" style="padding: 4rem;">
+                                <h3>暂无检查记录</h3>
+                                <p style="color:var(--text-scondary); margin: 1rem 0;">未找到相关记录。点击左侧按钮发起新筛查。</p>
+                                <button class="btn btn-primary" onclick="Portal.startNewScreening()">发起新筛查</button>
+                            </div>
+                        </div>
+                    `;
+          return;
+        }
+
+        const listHtml = `
+                    <div style="display:grid; gap:1rem;">
+                        ${history.map(item => `
+                            <div class="card">
+                                <div class="card-body flex-between">
+                                    <div>
+                                        <div style="font-weight:600; margin-bottom:0.25rem;">检查编号: ${item.exam_id}</div>
+                                        <div style="font-size:0.875rem; color:var(--text-scondary);">${item.exam_date}</div>
+                                        <div style="margin-top:0.5rem; font-size:0.9rem;">${item.primary_diagnosis || '等待诊断...'}</div>
+                                    </div>
+                                    <div style="text-align:right;">
+                                        ${this.getStatusBadge(item)}
+                                        <div style="margin-top:0.5rem;">
+                                            ${item.status === 'pending'
+            ? `<button class="btn btn-primary" style="padding:0.25rem 0.5rem; font-size:0.8rem;" onclick="Portal.resumeScreening('${item.exam_id}')">继续筛查</button>`
+            : `<button class="btn btn-outline" style="padding:0.25rem 0.5rem; font-size:0.8rem;" onclick="Portal.viewReport('${item.exam_id}')">查看详情</button>`
+          }
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+
+        $('#main-content').innerHTML = `
+            <div class="flex-between mb-4">
+                <h2>我的检查记录</h2>
+            </div>
+            ${filterHtml}
+            ${listHtml}
+        `;
+      },
+
+      getStatusBadge(item) {
+        if (item.status === 'completed') {
+          const color = item.overall_risk_level === '高风险' ? 'error' : item.overall_risk_level === '中风险' ? 'warning' : 'success';
+          return `<span class="badge badge-${color}">${item.overall_risk_level || '已完成'}</span>`;
+        }
+        return `<span class="badge badge-info">${item.status === 'processing' ? '分析中' : '待处理'}</span>`;
+      },
+
+      async startNewScreening() {
+        try {
+          const res = await App.API.post('/api/examination/create', { patient_id: this.state.patientId });
+          this.state.currentExamId = res.exam_id;
+          this.renderUploadFlow('fundus');
+        } catch (err) {
+          App.Toast.show(err.message, 'error');
+        }
+      },
+
+      resumeScreening(examId) {
+        this.state.currentExamId = examId;
+        // Resume from step 1 for simplicity (or check backend for progress if implemented)
+        this.renderUploadFlow('fundus');
+      },
+
+      renderUploadFlow(step) {
+        const steps = {
+          fundus: { title: '上传眼底照', next: 'ecg', api: '/api/upload/fundus', accept: 'image/*' },
+          ecg: { title: '上传ECG数据', next: 'text', api: '/api/upload/ecg', accept: '.csv,.txt,.dat,.mat' },
+          text: { title: '上传病历文本', next: 'analyze', api: '/api/upload/medical_text', accept: '.txt,.json' }
+        };
+
+        const currentStep = steps[step];
+
+        $('#main-content').innerHTML = `
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>${currentStep.title}</h3>
+                            <span class="badge badge-info">检查ID: ${this.state.currentExamId}</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="step-progress">
+                                <div class="step-item ${step === 'fundus' ? 'active' : ''}">1. 眼底图像</div>
+                                <div class="step-item ${step === 'ecg' ? 'active' : ''}">2. ECG信号</div>
+                                <div class="step-item ${step === 'text' ? 'active' : ''}">3. 病历文本</div>
+                                <div class="step-item">4. 智能分析</div>
+                            </div>
+                            
+                            <div class="file-drop-zone" onclick="document.getElementById('file-input').click()">
+                                <input type="file" id="file-input" hidden accept="${currentStep.accept}" onchange="Portal.handleUpload('${step}', this.files[0])">
+                                <div style="font-size:3rem; margin-bottom:1rem;">📤</div>
+                                <p>点击选择或拖拽文件到此处</p>
+                                <p style="font-size:0.875rem; color:var(--text-scondary); margin-top:0.5rem;">支持格式: ${currentStep.accept}</p>
+                            </div>
+
+                            <div class="text-center mt-4">
+                                <button class="btn btn-outline" onclick="Portal.skipStep('${currentStep.next}')">跳过此步 (测试用)</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+      },
+
+      async handleUpload(step, file) {
+        if (!file) return;
+
+        const steps = {
+          fundus: { next: 'ecg', api: '/api/upload/fundus' },
+          ecg: { next: 'text', api: '/api/upload/ecg' },
+          text: { next: 'analyze', api: '/api/upload/medical_text' }
+        };
+
+        try {
+          App.Toast.show('正在上传...', 'info');
+          await App.API.upload(steps[step].api, file, { exam_id: this.state.currentExamId });
+          App.Toast.show('上传成功', 'success');
+
+          if (steps[step].next === 'analyze') {
+            this.startAnalysis();
+          } else {
+            this.renderUploadFlow(steps[step].next);
+          }
+        } catch (err) {
+          App.Toast.show(err.message, 'error');
+        }
+      },
+
+      skipStep(nextStep) {
+        if (nextStep === 'analyze') {
+          this.startAnalysis();
+        } else {
+          this.renderUploadFlow(nextStep);
+        }
+      },
+
+      async startAnalysis() {
+        $('#main-content').innerHTML = `
+                    <div class="card text-center" style="padding: 4rem;">
+                        <div style="font-size: 3rem; margin-bottom:1rem; animation: pulse 1s infinite alternate;">🧠</div>
+                        <h3>正在进行多模态AI分析</h3>
+                        <p class="text-secondary">融合眼底、ECG与病历数据的智能诊断中...</p>
+                        <div style="height:4px; background:var(--border); width:200px; margin: 2rem auto; border-radius:2px; overflow:hidden;">
+                            <div style="height:100%; background:var(--primary); width:50%; animation: loading 2s infinite;"></div>
+                        </div>
+                    </div>
+                    <style>@keyframes loading { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }</style>
+                `;
+
+        try {
+          await App.API.post(`/api/analyze/${this.state.currentExamId}`);
+          App.Toast.show('分析完成', 'success');
+          this.viewReport(this.state.currentExamId);
+        } catch (err) {
+          $('#main-content').innerHTML = `
+                        <div class="card">
+                             <div class="card-body text-center">
+                                <h3 style="color:var(--error)">分析失败</h3>
+                                <p>${err.message}</p>
+                                <button class="btn btn-primary mt-4" onclick="Portal.loadHistory()">返回列表</button>
+                             </div>
+                        </div>
+                    `;
+        }
+      },
+
+      async viewReport(examId) {
+        try {
+          const res = await App.API.get(`/api/report/${examId}`);
+          const r = res.comprehensive_report;
+
+          if (!r) {
+            $('#main-content').innerHTML = `<div class="card"><div class="card-body">报告尚未生成</div></div>`;
+            return;
+          }
+
+          const riskColor = r.overall_risk_level === '高风险' ? '#ef4444' : r.overall_risk_level === '中风险' ? '#f59e0b' : '#10b981';
+
+          $('#main-content').innerHTML = `
+                        <div class="card" style="margin-bottom: 2rem;">
+                            <div class="card-header">
+                                <div style="display:flex; align-items:center; gap:1rem;">
+                                    <button class="btn btn-outline" onclick="Portal.loadHistory()">← 返回</button>
+                                    <h3>诊断报告详情</h3>
+                                </div>
+                                <button class="btn btn-primary" onclick="Portal.exportReport('${examId}')">📥 导出报告</button>
+                            </div>
+                            <div class="card-body">
+                                <div style="display:flex; align-items:center; justify-content:space-between; padding: 2rem; background: var(--background); border-radius: 1rem; margin-bottom: 2rem;">
+                                    <div>
+                                        <div style="font-size:0.875rem; color:var(--text-scondary);">综合风险评估</div>
+                                        <div style="font-size:2rem; font-weight:700; color:${riskColor}">${r.overall_risk_level}</div>
+                                    </div>
+                                    <div style="text-align:right;">
+                                        <div style="font-size:0.875rem; color:var(--text-scondary);">置信度</div>
+                                        <div style="font-size:1.5rem; font-weight:700;">${(r.confidence * 100).toFixed(1)}%</div>
+                                    </div>
+                                </div>
+
+                                <div class="grid-cols-2">
+                                    <div class="form-group">
+                                        <label class="form-label">主要诊断</label>
+                                        <div style="font-size:1.1rem; font-weight:600;">${r.primary_diagnosis || '无明显异常'}</div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">次要诊断</label>
+                                        <div>${r.secondary_diagnosis || '无'}</div>
+                                    </div>
+                                </div>
+
+                                <div style="margin-top:2rem;">
+                                    <h4>健康建议</h4>
+                                    <div style="background:var(--primary-light); padding:1.5rem; border-radius:1rem; margin-top:1rem;">
+                                        <ul style="padding-left:1.5rem;">
+                                            ${JSON.parse(r.health_recommendations || '[]').map(rec => `<li style="margin-bottom:0.5rem;">${rec}</li>`).join('')}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+        } catch (err) {
+          App.Toast.show(err.message, 'error');
+        }
+      },
+
+      async exportReport(examId) {
+        try {
+          const data = await App.API.get(`/api/export/report/${examId}`);
+          const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+          const downloadAnchorNode = document.createElement('a');
+          downloadAnchorNode.setAttribute("href", dataStr);
+          downloadAnchorNode.setAttribute("download", `report_${examId}.json`);
+          document.body.appendChild(downloadAnchorNode);
+          downloadAnchorNode.click();
+          downloadAnchorNode.remove();
+        } catch (err) {
+          App.Toast.show('导出失败: ' + err.message, 'error');
+        }
+      }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      Portal.init();
+    });
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登录 - 多模态慢性病智能筛查平台</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <style>
+    .login-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      background: radial-gradient(circle at 50% 50%, #e6f2f2 0%, #f8fafc 100%);
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 440px;
+      background: var(--surface);
+      padding: 2.5rem;
+      border-radius: 1.5rem;
+      box-shadow: var(--shadow-lg);
+      border: 1px solid var(--surface-translucent);
+      backdrop-filter: blur(10px);
+    }
+
+    .login-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .logo-mark {
+      width: 50px;
+      height: 50px;
+      background: var(--primary);
+      border-radius: 12px;
+      color: white;
+      font-size: 24px;
+      font-weight: 700;
+      display: grid;
+      place-items: center;
+      margin: 0 auto 1rem;
+      box-shadow: 0 10px 20px rgba(0, 128, 128, 0.3);
+    }
+
+    .tabs {
+      display: flex;
+      background: var(--background);
+      padding: 4px;
+      border-radius: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background: transparent;
+      border-radius: 0.5rem;
+      font-weight: 600;
+      color: var(--text-scondary);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: var(--surface);
+      color: var(--primary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .auth-actions {
+      margin-top: 2rem;
+      display: grid;
+      gap: 1rem;
+    }
+
+    /* Modal Styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      place-items: center;
+      z-index: 1000;
+      backdrop-filter: blur(4px);
+    }
+
+    .modal-overlay.active {
+      display: grid;
+    }
+
+    .modal {
+      background: white;
+      padding: 0;
+      border-radius: 1rem;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="login-page">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="logo-mark">智</div>
+        <h2>欢迎回来</h2>
+        <p style="color: var(--text-scondary); font-size: 0.9rem;">多模态慢性病智能筛查平台</p>
+      </div>
+
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('doctor')">医生入口</button>
+        <button class="tab-btn" onclick="switchTab('patient')">患者入口</button>
+      </div>
+
+      <!-- Doctor Login Form -->
+      <form id="doctor-form" class="tab-content active" onsubmit="handleDoctorLogin(event)">
+        <div class="form-group">
+          <label class="form-label">医生ID</label>
+          <input type="text" name="doctor_id" class="form-input" placeholder="请输入医生ID" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">密码</label>
+          <input type="password" name="password" class="form-input" placeholder="请输入密码" required>
+        </div>
+        <div class="auth-actions">
+          <button type="submit" class="btn btn-primary" style="width: 100%">登录系统</button>
+        </div>
+      </form>
+
+      <!-- Patient Login/Entry Form -->
+      <div id="patient-entry" class="tab-content">
+        <form onsubmit="handlePatientLogin(event)">
+          <div class="form-group">
+            <label class="form-label">患者ID</label>
+            <input type="text" name="patient_id" class="form-input" placeholder="请输入您的患者ID (P...)" required>
+          </div>
+          <div class="auth-actions">
+            <button type="submit" class="btn btn-primary" style="width: 100%">进入服务大厅</button>
+            <button type="button" class="btn btn-outline" style="width: 100%"
+              onclick="showRegisterModal()">我是新用户，立即注册</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Register Modal -->
+  <div id="modal-register" class="modal-overlay">
+    <div class="modal">
+      <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <h3>新患者注册</h3>
+        <button class="btn" style="background:none; border:none; font-size:1.5rem; cursor:pointer;"
+          onclick="closeRegisterModal()">×</button>
+      </div>
+      <div class="card-body">
+        <form onsubmit="handleRegister(event)">
+          <div class="form-group">
+            <label class="form-label">姓名</label>
+            <input type="text" name="name" class="form-input" required placeholder="请输入您的真实姓名">
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">年龄</label>
+              <input type="number" name="age" class="form-input" required placeholder="岁">
+            </div>
+            <div class="form-group">
+              <label class="form-label">性别</label>
+              <select name="gender" class="form-select">
+                <option value="男">男</option>
+                <option value="女">女</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">联系电话</label>
+            <input type="tel" name="phone" class="form-input" required placeholder="用于接收通知">
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%">立即注册</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+  <script>
+    function switchTab(type) {
+      // Update buttons
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+
+      // Update content
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      if (type === 'doctor') {
+        document.getElementById('doctor-form').classList.add('active');
+      } else {
+        document.getElementById('patient-entry').classList.add('active');
+      }
+    }
+
+    async function handleDoctorLogin(e) {
+      e.preventDefault();
+      const form = e.target;
+      const btn = form.querySelector('button[type="submit"]');
+
+      const formData = new FormData(form);
+      const data = Object.fromEntries(formData.entries());
+
+      try {
+        App.UI.setLoading(btn, true);
+
+        const res = await App.API.post('/api/doctor/login', data);
+
+        App.Toast.show('登录成功', 'success');
+
+        // Store doctor info
+        localStorage.setItem('doctor_id', res.doctor.doctor_id);
+        localStorage.setItem('doctor_name', res.doctor.name);
+
+        // Redirect
+        setTimeout(() => {
+          window.location.href = '/doctor';
+        }, 1000);
+
+      } catch (error) {
+        // Error already handled by API wrapper toast
+        App.UI.setLoading(btn, false);
+      }
+    }
+
+    async function handlePatientLogin(e) {
+      e.preventDefault();
+      const form = e.target;
+      const btn = form.querySelector('button[type="submit"]');
+      const formData = new FormData(form);
+      const id = formData.get('patient_id').trim();
+
+      try {
+        App.UI.setLoading(btn, true);
+        // Check if patient exists by getting history
+        const res = await App.API.get(`/api/patient/${id}/history`);
+
+        localStorage.setItem('patient_id', id);
+        localStorage.setItem('patient_name', res.patient_name);
+        App.Toast.show('欢迎回来', 'success');
+        setTimeout(() => window.location.href = '/patient', 1000);
+      } catch (err) {
+        App.Toast.show('患者ID不存在，请先注册', 'error');
+        App.UI.setLoading(btn, false);
+      }
+    }
+
+    // Modal Logic
+    function showRegisterModal() {
+      document.getElementById('modal-register').classList.add('active');
+    }
+    function closeRegisterModal() {
+      document.getElementById('modal-register').classList.remove('active');
+    }
+
+    async function handleRegister(e) {
+      e.preventDefault();
+      const form = e.target;
+      const btn = form.querySelector('button[type="submit"]');
+      const formData = new FormData(form);
+      const data = Object.fromEntries(formData);
+      data.age = parseInt(data.age);
+
+      try {
+        App.UI.setLoading(btn, true);
+        const res = await App.API.post('/api/patient/register', data);
+
+        localStorage.setItem('patient_id', res.patient_id);
+        localStorage.setItem('patient_name', data.name);
+
+        App.Toast.show('注册成功! 您的ID是: ' + res.patient_id, 'success');
+
+        // Auto login
+        setTimeout(() => window.location.href = '/patient', 1000);
+      } catch (err) {
+        App.Toast.show(err.message, 'error');
+        App.UI.setLoading(btn, false);
+      }
+    }
+  </script>
+</body>
+
+</html>

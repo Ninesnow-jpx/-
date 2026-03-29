@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>多模态慢性病智能筛查平台</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    .hero {
+      padding: 5rem 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4rem;
+      align-items: center;
+    }
+
+    .hero-content h1 {
+      font-size: 3.5rem;
+      line-height: 1.1;
+      margin-bottom: 1.5rem;
+      background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-content p {
+      font-size: 1.25rem;
+      color: var(--text-scondary);
+      margin-bottom: 2.5rem;
+      max-width: 500px;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2rem;
+      padding: 5rem 0;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      padding: 2rem;
+      border-radius: 1.5rem;
+      border: 1px solid var(--border);
+      transition: transform 0.3s;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-5px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .feature-icon {
+      width: 60px;
+      height: 60px;
+      background: var(--primary-light);
+      color: var(--primary);
+      border-radius: 1rem;
+      display: grid;
+      place-items: center;
+      font-size: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    @media (max-width: 968px) {
+      .hero {
+        grid-template-columns: 1fr;
+        text-align: center;
+      }
+
+      .hero-content p {
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .hero-actions {
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <nav class="navbar">
+    <div class="container navbar-content">
+      <a href="/" class="brand">
+        <div
+          style="width:32px;height:32px;background:var(--primary);border-radius:8px;display:grid;place-items:center;color:white;">
+          ✚</div>
+        智能筛查平台
+      </a>
+      <div class="nav-links">
+        <a href="#features" class="nav-link">功能特性</a>
+        <a href="#process" class="nav-link">筛查流程</a>
+        <button onclick="showRegisterModal()" class="btn btn-outline" style="margin-right: 0.5rem;">快速注册</button>
+        <a href="/login" class="btn btn-primary">立即登录</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <section class="hero">
+      <div class="hero-content animate-fade-in">
+        <h1>多模态慢性病<br>智能筛查系统</h1>
+        <p>基于眼底图像、ECG信号及病历文本的多模态AI分析，为早期慢病筛查提供精准、高效的辅助诊断。</p>
+
+        <!-- Smart Login Form -->
+        <div class="smart-login-card"
+          style="background: white; padding: 1.5rem; border-radius: 1rem; box-shadow: var(--shadow-md); max-width: 400px;">
+          <form id="smart-login-form" onsubmit="handleSmartLogin(event)">
+            <div class="form-group" style="margin-bottom: 1rem;">
+              <label style="font-size: 0.875rem; font-weight: 500; margin-bottom: 0.5rem; display: block;">账号登录</label>
+              <div style="display: flex; gap: 0.5rem;">
+                <input type="text" id="login-id" name="id" class="form-input" placeholder="请输入您的ID (如 P... 或 D...)"
+                  required oninput="detectUserType(this.value)" style="flex: 1;">
+              </div>
+              <small id="user-type-hint"
+                style="color: var(--text-scondary); font-size: 0.75rem; display: block; margin-top: 0.25rem;">
+                请输入ID以识别身份 (D开头为医生，P开头为患者)
+              </small>
+            </div>
+
+            <div id="password-group" class="form-group" style="margin-bottom: 1rem; display: none;">
+              <input type="password" name="password" class="form-input" placeholder="请输入密码">
+            </div>
+
+            <div style="display: flex; gap: 1rem;">
+              <button type="submit" class="btn btn-primary" style="flex: 1;">进入系统</button>
+              <button type="button" class="btn btn-outline" onclick="showRegisterModal()">新用户注册</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div class="hero-visual" style="position:relative; perspective: 1200px;">
+        <div class="dashboard-mockup" style="
+            width:100%;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 1.5rem;
+            box-shadow:
+                -20px 40px 60px rgba(0,0,0,0.15),
+                -5px 10px 20px rgba(0,0,0,0.05),
+                0 0 0 1px rgba(0,0,0,0.05);
+            overflow: hidden;
+            transform: rotateY(-12deg) rotateX(6deg) translateZ(0);
+            transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+        ">
+          <!-- Mockup Header -->
+          <div
+            style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); display:flex; justify-content:space-between; align-items:center; background: #fff;">
+            <div style="display:flex; align-items:center; gap: 0.75rem;">
+              <div
+                style="width:32px; height:32px; background:var(--primary-light); color:var(--primary); border-radius:8px; display:grid; place-items:center;">
+                ✚</div>
+              <div>
+                <div style="font-weight:600; font-size:0.9rem;">多模态智能分析报告</div>
+                <div style="font-size:0.75rem; color:var(--text-scondary);">Report ID: #20240122-AI</div>
+              </div>
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+              <span
+                style="font-size:0.75rem; padding:0.25rem 0.75rem; background:var(--success-light); color:var(--success); border-radius:1rem;">分析完成</span>
+            </div>
+          </div>
+
+          <!-- Mockup Body -->
+          <div style="padding: 1.5rem; display: grid; grid-template-columns: 1.2fr 1fr; gap: 1.5rem;">
+
+            <!-- Left Column: Visual Data -->
+            <div style="display:flex; flex-direction:column; gap:1.25rem;">
+              <!-- Fundus Image Simulation -->
+              <div class="monitor-card"
+                style="background:#f8fafc; padding:1rem; border-radius:1rem; border:1px solid var(--border);">
+                <div style="display:flex; justify-content:space-between; margin-bottom:0.75rem;">
+                  <span style="font-size:0.8rem; font-weight:600; color:#475569;">👁️ 眼底视网膜影像</span>
+                  <span style="font-size:0.7rem; color:#ef4444;">监测到微血管异常</span>
+                </div>
+                <div style="
+                            width:100%; height:140px;
+                            background: radial-gradient(circle at 40% 50%, #d97706 0%, #b45309 30%, #451a03 100%);
+                            border-radius:0.75rem;
+                            position:relative;
+                            overflow:hidden;
+                            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+                        ">
+                  <!-- Simulated Blood Vessels (CSS Art) -->
+                  <svg width="100%" height="100%" style="opacity:0.6; mix-blend-mode: overlay;">
+                    <path d="M100,70 Q150,60 200,90 T300,50" fill="none" stroke="#fecaca" stroke-width="2" />
+                    <path d="M100,70 Q130,100 180,110 T280,130" fill="none" stroke="#fecaca" stroke-width="3" />
+                    <path d="M100,70 Q80,40 60,30" fill="none" stroke="#fecaca" stroke-width="2" />
+                  </svg>
+                  <!-- Detected Spot UI Overlay -->
+                  <div style="
+                                position:absolute; top:40%; left:60%;
+                                width:16px; height:16px;
+                                border:2px solid #ef4444;
+                                border-radius:50%;
+                                animation: pulse-ring 2s infinite;
+                            "></div>
+                </div>
+              </div>
+
+              <!-- ECG Simulation -->
+              <div class="monitor-card"
+                style="background:#f8fafc; padding:1rem; border-radius:1rem; border:1px solid var(--border);">
+                <div style="display:flex; justify-content:space-between; margin-bottom:0.75rem;">
+                  <span style="font-size:0.8rem; font-weight:600; color:#475569;">📈 ECG 心电图谱</span>
+                  <span style="font-size:0.7rem; color:var(--success);">窦性心律</span>
+                </div>
+                <div style="
+                            width:100%; height:60px;
+                            background: #0f172a;
+                            border-radius:0.5rem;
+                            display:flex;
+                            align-items:center;
+                            padding:0 10px;
+                            position: relative;
+                            overflow: hidden;
+                        ">
+                  <!-- Scanning Grid -->
+                  <div
+                    style="position:absolute; inset:0; background-image: linear-gradient(#1e293b 1px, transparent 1px), linear-gradient(90deg, #1e293b 1px, transparent 1px); background-size: 10px 10px; opacity:0.3;">
+                  </div>
+
+                  <!-- SVG Waveform -->
+                  <svg viewBox="0 0 200 40" style="width:100%; height:100%; overflow:visible;">
+                    <path
+                      d="M0,20 L20,20 L25,10 L30,30 L35,5 L40,35 L45,20 L60,20 L65,10 L70,30 L75,5 L80,35 L85,20 L100,20 L105,10 L110,30 L115,5 L120,35 L125,20 L200,20"
+                      fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                      class="ecg-line" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Column: AI Analysis -->
+            <div style="display:flex; flex-direction:column; gap:1rem;">
+              <div style="background:var(--primary); padding:1.25rem; border-radius:1rem; color:white;">
+                <div style="font-size:0.8rem; opacity:0.9;">核心AI引擎</div>
+                <div style="font-size:1.5rem; font-weight:700; margin:0.25rem 0;">多模态融合模型</div>
+                <div style="font-size:0.75rem; opacity:0.8;">Deep Learning System Active</div>
+
+                <div style="margin-top:1.5rem;">
+                  <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem;">
+                    <div
+                      style="width:32px; height:32px; background:rgba(255,255,255,0.2); border-radius:50%; display:grid; place-items:center;">
+                      👁️</div>
+                    <div>
+                      <div style="font-size:0.75rem; font-weight:600;">ResNet-50 影像分析</div>
+                      <div style="font-size:0.65rem; opacity:0.7;">准确率 > 98.5%</div>
+                    </div>
+                  </div>
+
+                  <div style="display:flex; align-items:center; gap:0.75rem;">
+                    <div
+                      style="width:32px; height:32px; background:rgba(255,255,255,0.2); border-radius:50%; display:grid; place-items:center;">
+                      📈</div>
+                    <div>
+                      <div style="font-size:0.75rem; font-weight:600;">LSTM 时序分析</div>
+                      <div style="font-size:0.65rem; opacity:0.7;">实时特征提取中</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style="background:white; border:1px solid var(--border); border-radius:1rem; padding:1rem; box-shadow:var(--shadow-sm);">
+                <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.75rem; color:#475569;">平台核心优势</div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.5rem;">
+                  <div style="background:#f8fafc; padding:0.5rem; border-radius:0.5rem; text-align:center;">
+                    <div style="font-size:1.2rem; margin-bottom:0.25rem;">⚡</div>
+                    <div style="font-size:0.65rem; color:#64748b;">秒级分析</div>
+                  </div>
+                  <div style="background:#f8fafc; padding:0.5rem; border-radius:0.5rem; text-align:center;">
+                    <div style="font-size:1.2rem; margin-bottom:0.25rem;">🔒</div>
+                    <div style="font-size:0.65rem; color:#64748b;">隐私加密</div>
+                  </div>
+                  <div style="background:#f8fafc; padding:0.5rem; border-radius:0.5rem; text-align:center;">
+                    <div style="font-size:1.2rem; margin-bottom:0.25rem;">🎯</div>
+                    <div style="font-size:0.65rem; color:#64748b;">精准诊断</div>
+                  </div>
+                  <div style="background:#f8fafc; padding:0.5rem; border-radius:0.5rem; text-align:center;">
+                    <div style="font-size:1.2rem; margin-bottom:0.25rem;">🔄</div>
+                    <div style="font-size:0.65rem; color:#64748b;">多模态融合</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Decoration / Background Blurs -->
+        <div
+          style="position:absolute; top:-20px; right:-20px; width:100px; height:100px; background:var(--primary); filter:blur(60px); opacity:0.2; z-index:-1;">
+        </div>
+        <div
+          style="position:absolute; bottom:-20px; left:-20px; width:120px; height:120px; background:var(--secondary); filter:blur(60px); opacity:0.2; z-index:-1;">
+        </div>
+
+        <style>
+          @keyframes pulse-ring {
+            0% {
+              box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            }
+
+            70% {
+              box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+            }
+
+            100% {
+              box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
+          }
+
+          .ecg-line {
+            stroke-dasharray: 200;
+            stroke-dashoffset: 200;
+            animation: draw 3s linear infinite;
+          }
+
+          @keyframes draw {
+            to {
+              stroke-dashoffset: 0;
+            }
+          }
+
+          .dashboard-mockup:hover {
+            transform: rotateY(0deg) rotateX(0deg) !important;
+          }
+        </style>
+      </div>
+    </section>
+
+    <section id="features" class="feature-grid">
+      <div class="feature-card reveal-on-scroll stagger-1">
+        <div class="feature-icon">👁️</div>
+        <h3>眼底图像分析</h3>
+        <p style="color:var(--text-scondary);margin-top:0.5rem;">自动识别微血管瘤、出血点等病灶，评估糖尿病视网膜病变风险。</p>
+        <div class="detail-view">
+          <h3>技术细节</h3>
+          <ul style="margin-top:1rem; padding-left:1.5rem; line-height:1.6;">
+            <li>Backbone: ResNet-50 v2</li>
+            <li>分辨率: 512x512 高清输入</li>
+            <li>特征层: FPN 多尺度融合</li>
+            <li>Attention: CBAM 空间/通道注意</li>
+          </ul>
+        </div>
+      </div>
+      <div class="feature-card reveal-on-scroll stagger-2">
+        <div class="feature-icon">📈</div>
+        <h3>ECG信号分析</h3>
+        <p style="color:var(--text-scondary);margin-top:0.5rem;">精准检测心律失常特征，评估心血管疾病潜在风险。</p>
+        <div class="detail-view">
+          <h3>技术细节</h3>
+          <ul style="margin-top:1rem; padding-left:1.5rem; line-height:1.6;">
+            <li>模型: Bi-LSTM + 1D-CNN</li>
+            <li>输入: 12导联/单导联 ECG</li>
+            <li>去噪: 小波变换滤波</li>
+            <li>窗口: 10s 动态滑窗分析</li>
+          </ul>
+        </div>
+      </div>
+      <div class="feature-card reveal-on-scroll stagger-3">
+        <div class="feature-icon">📝</div>
+        <h3>多模态融合</h3>
+        <p style="color:var(--text-scondary);margin-top:0.5rem;">综合分析多维健康数据，生成全面的诊断报告与健康建议。</p>
+        <div class="detail-view">
+          <h3>技术细节</h3>
+          <ul style="margin-top:1rem; padding-left:1.5rem; line-height:1.6;">
+            <li>融合策略: Late Fusion (决策级)</li>
+            <li>文本处理: Clinical-BERT</li>
+            <li>风险评估: 集成学习 (XGBoost)</li>
+            <li>输出: 结构化 JSON 报告</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="process">
+      <div class="container">
+        <h2 class="text-center mb-4" style="text-align:center; font-size:2.5rem; margin-bottom:3rem;">全流程智能筛查</h2>
+        <div class="process-steps">
+          <div class="step-card reveal-on-scroll stagger-1">
+            <div class="step-number">1</div>
+            <h4 style="margin-bottom:0.5rem;">注册登录</h4>
+            <p style="font-size:0.875rem; color:var(--text-scondary);">快速创建个人账户，或直接使用 ID 登录系统。</p>
+          </div>
+          <div class="step-card reveal-on-scroll stagger-2">
+            <div class="step-number">2</div>
+            <h4 style="margin-bottom:0.5rem;">数据上传</h4>
+            <p style="font-size:0.875rem; color:var(--text-scondary);">按指引上传眼底照、心电数据及病历文本。</p>
+          </div>
+          <div class="step-card reveal-on-scroll stagger-3">
+            <div class="step-number">3</div>
+            <h4 style="margin-bottom:0.5rem;">AI 分析</h4>
+            <p style="font-size:0.875rem; color:var(--text-scondary);">云端多模态模型实时处理，秒级生成分析结果。</p>
+          </div>
+          <div class="step-card reveal-on-scroll stagger-4">
+            <div class="step-number">4</div>
+            <h4 style="margin-bottom:0.5rem;">获取报告</h4>
+            <p style="font-size:0.875rem; color:var(--text-scondary);">查看详细的风险评估报告，并获取专业健康建议。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Register Modal -->
+  <div id="modal-register" class="modal-overlay">
+    <div class="modal">
+      <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <h3>新患者注册</h3>
+        <button class="btn" style="background:none; border:none; font-size:1.5rem; cursor:pointer;"
+          onclick="closeRegisterModal()">×</button>
+      </div>
+      <div class="card-body">
+        <form onsubmit="handleRegister(event)">
+          <div class="form-group">
+            <label class="form-label">姓名</label>
+            <input type="text" name="name" class="form-input" required placeholder="请输入您的真实姓名">
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">年龄</label>
+              <input type="number" name="age" class="form-input" required placeholder="岁">
+            </div>
+            <div class="form-group">
+              <label class="form-label">性别</label>
+              <select name="gender" class="form-select">
+                <option value="男">男</option>
+                <option value="女">女</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">联系电话</label>
+            <input type="tel" name="phone" class="form-input" required placeholder="用于接收通知">
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%">立即注册</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    html {
+      scroll-behavior: smooth;
+    }
+
+    /* Navbar Link Refinement */
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .nav-link {
+      color: var(--text-primary);
+      font-weight: 500;
+      text-decoration: none;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.5rem;
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .nav-link:hover {
+      background: var(--surface);
+      color: var(--primary);
+    }
+
+    /* Simple separator */
+    .nav-links a:nth-child(2) {
+      margin-right: 1rem;
+      border-right: 1px solid var(--border);
+      padding-right: 2rem;
+    }
+
+    /* Feature Card Interaction */
+    .feature-card {
+      position: relative;
+      overflow: hidden;
+      cursor: default;
+    }
+
+    .feature-card .detail-view {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--primary);
+      color: white;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      transition: top 0.3s ease-in-out;
+    }
+
+    .feature-card:hover .detail-view {
+      top: 0;
+    }
+
+    .feature-card:hover h3,
+    .feature-card:hover p {
+      opacity: 0;
+      /* Hide original content on hover to avoid clash if transparent */
+    }
+
+    /* Process Section Styles */
+    #process {
+      padding: 5rem 0;
+      background: linear-gradient(to bottom, white, #f8fafc);
+    }
+
+    .process-steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2rem;
+      margin-top: 3rem;
+      position: relative;
+    }
+
+    /* Connecting Line */
+    .process-steps::before {
+      content: '';
+      position: absolute;
+      top: 25px;
+      left: 50px;
+      right: 50px;
+      height: 2px;
+      background: var(--border);
+      z-index: 0;
+    }
+
+    .step-card {
+      position: relative;
+      z-index: 1;
+      background: white;
+      padding: 1.5rem;
+      border-radius: 1rem;
+      border: 1px solid var(--border);
+      text-align: center;
+      transition: transform 0.3s;
+    }
+
+    .step-card:hover {
+      transform: translateY(-5px);
+      box-shadow: var(--shadow-md);
+      border-color: var(--primary);
+    }
+
+    .step-number {
+      width: 50px;
+      height: 50px;
+      background: var(--surface);
+      color: var(--text-primary);
+      border: 2px solid var(--border);
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      margin: 0 auto 1.5rem auto;
+      font-size: 1.25rem;
+      transition: all 0.3s;
+    }
+
+    .step-card:hover .step-number {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    /* Modal Styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      place-items: center;
+      z-index: 1000;
+      backdrop-filter: blur(4px);
+    }
+
+    .modal-overlay.active {
+      display: grid;
+    }
+
+    .modal {
+      background: white;
+      padding: 0;
+      border-radius: 1rem;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .card-body {
+      padding: 1.5rem;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+    }
+
+    .form-input,
+    .form-select {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .form-input:focus,
+    .form-select:focus {
+      border-color: var(--primary);
+    }
+
+    /* Animation Keyframes */
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .reveal-on-scroll {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: all 0.8s cubic-bezier(0.5, 0, 0, 1);
+    }
+
+    .reveal-on-scroll.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .hero-content {
+      opacity: 0;
+      animation: fadeUp 1s ease-out forwards;
+    }
+
+    .hero-visual {
+      opacity: 0;
+      animation: fadeUp 1s ease-out 0.3s forwards;
+    }
+
+    .stagger-1 {
+      transition-delay: 0.1s;
+    }
+
+    .stagger-2 {
+      transition-delay: 0.2s;
+    }
+
+    .stagger-3 {
+      transition-delay: 0.3s;
+    }
+
+    .stagger-4 {
+      transition-delay: 0.4s;
+    }
+  </style>
+
+  <script src="/static/js/app.js"></script>
+  <script>
+    // Animation Observer
+    document.addEventListener('DOMContentLoaded', () => {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+          }
+        });
+      }, { threshold: 0.1 });
+
+      document.querySelectorAll('.reveal-on-scroll').forEach(el => observer.observe(el));
+    });
+
+    // Smart Login Logic
+    function detectUserType(value) {
+      const hint = document.getElementById('user-type-hint');
+      const pwdGroup = document.getElementById('password-group');
+      const passInput = pwdGroup.querySelector('input');
+
+      if (!value) {
+        hint.textContent = '请输入ID以识别身份 (D开头为医生，P开头为患者)';
+        hint.style.color = 'var(--text-scondary)';
+        pwdGroup.style.display = 'none';
+        passInput.required = false;
+        return;
+      }
+
+      if (value.toUpperCase().startsWith('D')) {
+        hint.textContent = '识别为：医生账号';
+        hint.style.color = 'var(--primary)';
+        pwdGroup.style.display = 'block';
+        passInput.required = true;
+      } else if (value.toUpperCase().startsWith('P')) {
+        hint.textContent = '识别为：患者账号 (无需密码)';
+        hint.style.color = 'var(--success)';
+        pwdGroup.style.display = 'none';
+        passInput.required = false;
+      } else {
+        hint.textContent = '未知账号类型 (请使用 D... 或 P... )';
+        hint.style.color = 'var(--warning)';
+        pwdGroup.style.display = 'none';
+        passInput.required = false;
+      }
+    }
+
+    async function handleSmartLogin(e) {
+      e.preventDefault();
+      const form = e.target;
+      const btn = form.querySelector('button[type="submit"]');
+      const id = document.getElementById('login-id').value.trim();
+
+      if (!id) return;
+
+      App.UI.setLoading(btn, true);
+
+      try {
+        if (id.toUpperCase().startsWith('D')) {
+          // Doctor Login
+          const password = form.querySelector('input[name="password"]').value;
+          const res = await App.API.post('/api/doctor/login', {
+            doctor_id: id,
+            password: password
+          });
+
+          localStorage.setItem('doctor_id', res.doctor.doctor_id);
+          localStorage.setItem('doctor_name', res.doctor.name);
+          App.Toast.show('登录成功', 'success');
+          setTimeout(() => window.location.href = '/doctor', 1000);
+
+        } else if (id.toUpperCase().startsWith('P')) {
+          // Patient Login (Check existence)
+          try {
+            const res = await App.API.get(`/api/patient/${id}/history`);
+            localStorage.setItem('patient_id', id);
+            localStorage.setItem('patient_name', res.patient_name);
+            App.Toast.show('欢迎回来', 'success');
+            setTimeout(() => window.location.href = '/patient', 1000);
+          } catch (err) {
+            App.Toast.show('患者ID不存在，请先注册', 'error');
+            setTimeout(() => showRegisterModal(), 1500);
+          }
+        } else {
+          App.Toast.show('无效的账号格式', 'error');
+        }
+      } catch (err) {
+        // Error handled by Toast in API wrapper mostly, but strict logic here
+        if (!err.message.includes('不存在')) {
+          App.Toast.show(err.message || '登录失败', 'error');
+        }
+      } finally {
+        App.UI.setLoading(btn, false);
+      }
+    }
+
+    // Modal Logic
+    function showRegisterModal() {
+      document.getElementById('modal-register').classList.add('active');
+    }
+
+    function closeRegisterModal() {
+      document.getElementById('modal-register').classList.remove('active');
+    }
+
+    async function handleRegister(e) {
+      e.preventDefault();
+      const form = e.target;
+      const btn = form.querySelector('button[type="submit"]');
+      const formData = new FormData(form);
+      const data = Object.fromEntries(formData);
+      data.age = parseInt(data.age);
+
+      try {
+        App.UI.setLoading(btn, true);
+        const res = await App.API.post('/api/patient/register', data);
+
+        localStorage.setItem('patient_id', res.patient_id);
+        localStorage.setItem('patient_name', data.name);
+
+        App.Toast.show('注册成功! 您的ID是: ' + res.patient_id, 'success');
+
+        // Copy to clipboard or autofill?
+        // Let's autofill the login form
+        document.getElementById('login-id').value = res.patient_id;
+        detectUserType(res.patient_id);
+        closeRegisterModal();
+
+      } catch (err) {
+        App.Toast.show(err.message, 'error');
+      } finally {
+        App.UI.setLoading(btn, false);
+      }
+    }
+  </script>
+
+  <script src="/static/js/app.js"></script>
+</body>
+
+</html>

@@ -22,10 +22,8 @@ networkx
 numpy
 numpy-typing-compat
 opencv-python
-opype
 packaging
 pandas
-path
 pillow
 pip
 pyparsing

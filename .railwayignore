@@ -1,0 +1,21 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Database files
+*.db
+
+# Test data
+test_data/
+
+# pytest cache
+.pytest_cache/
+
+# Log files
+*.log
+
+# Git directory
+.git/
+
+# Package info
+*.egg-info/

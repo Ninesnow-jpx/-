@@ -20,14 +20,12 @@ matplotlib
 mpmath
 networkx
 numpy
-numpy-typing-compat
 opencv-python
 opype
 packaging
 pandas
 path
 pillow
-pip
 pyparsing
 python-dateutil
 pyyaml
@@ -36,8 +34,6 @@ requests
 safetensors
 scikit-learn
 scipy
-scipy-stubs
-setuptools
 six
 sympy
 threadpoolctl
